@@ -1,5 +1,5 @@
 {
-  "name": "@jhandel/sceneforge-shared",
+  "name": "@t3lnet/sceneforge-shared",
   "version": "0.1.0",
   "private": true,
   "description": "SceneForge shared types and utilities for demo recording and playback",

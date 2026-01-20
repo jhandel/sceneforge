@@ -1,5 +1,5 @@
 /**
- * @jhandel/sceneforge
+ * @t3lnet/sceneforge
  *
  * SceneForge public API: demo runner + generation utilities.
  */

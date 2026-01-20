@@ -1,5 +1,5 @@
 {
-  "name": "@jhandel/sceneforge-generation",
+  "name": "@t3lnet/sceneforge-generation",
   "version": "0.1.0",
   "private": true,
   "description": "SceneForge script and audio generation utilities for demo videos",

@@ -8,12 +8,12 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --filter @jhandel/sceneforge-extension dev",
+    "dev": "bun run --filter @t3lnet/sceneforge-extension dev",
     "build": "bun run build:shared && bun run build:playwright && bun run build:extension && bun run build:sceneforge",
     "build:shared": "echo 'Shared package uses TypeScript source directly'",
     "build:playwright": "echo 'Playwright package uses TypeScript source directly'",
-    "build:extension": "bun run --filter @jhandel/sceneforge-extension build",
-    "build:sceneforge": "bun run --filter @jhandel/sceneforge build",
+    "build:extension": "bun run --filter @t3lnet/sceneforge-extension build",
+    "build:sceneforge": "bun run --filter @t3lnet/sceneforge build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "bun run test:unit && bun run test:e2e",

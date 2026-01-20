@@ -4,7 +4,7 @@ import { config as loadEnv } from "dotenv";
 import {
   createVoiceSynthesizer,
   generateTimingManifest,
-} from "@jhandel/sceneforge-generation";
+} from "@t3lnet/sceneforge-generation";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import {
   getOutputPaths,

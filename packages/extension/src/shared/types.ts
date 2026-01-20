@@ -1,5 +1,5 @@
 /**
- * Re-export types from @jhandel/sceneforge-shared.
+ * Re-export types from @t3lnet/sceneforge-shared.
  * This allows existing imports in the extension to continue working.
  */
 
@@ -20,4 +20,4 @@ export type {
   RecordingState,
   PickerResult,
   TestSelectorResponse,
-} from "@jhandel/sceneforge-shared";
+} from "@t3lnet/sceneforge-shared";

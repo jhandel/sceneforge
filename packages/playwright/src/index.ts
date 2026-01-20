@@ -1,5 +1,5 @@
 /**
- * @jhandel/sceneforge-playwright
+ * @t3lnet/sceneforge-playwright
  *
  * Playwright driver for demo recording and playback.
  * Used to execute demo definitions and record videos.
@@ -14,7 +14,7 @@ export type {
   StepTarget,
   WaitCondition,
   DragConfig,
-} from "@jhandel/sceneforge-shared";
+} from "@t3lnet/sceneforge-shared";
 
 // Demo runner
 export {

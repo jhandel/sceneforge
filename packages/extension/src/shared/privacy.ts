@@ -1,4 +1,4 @@
-import type { PrivacyConfig } from "@jhandel/sceneforge-shared";
+import type { PrivacyConfig } from "@t3lnet/sceneforge-shared";
 
 export const DEFAULT_PRIVACY_CONFIG: PrivacyConfig = {
   redactSensitiveInputs: true,

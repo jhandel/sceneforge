@@ -1,5 +1,5 @@
 {
-  "name": "@jhandel/sceneforge-playwright",
+  "name": "@t3lnet/sceneforge-playwright",
   "version": "0.1.0",
   "private": true,
   "description": "SceneForge Playwright driver for demo recording and playback",
@@ -14,8 +14,8 @@
   },
   "files": ["src"],
   "dependencies": {
-    "@jhandel/sceneforge-generation": "workspace:*",
-    "@jhandel/sceneforge-shared": "workspace:*",
+    "@t3lnet/sceneforge-generation": "workspace:*",
+    "@t3lnet/sceneforge-shared": "workspace:*",
     "yaml": "^2.7.0"
   },
   "peerDependencies": {

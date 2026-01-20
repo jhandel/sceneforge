@@ -11,17 +11,17 @@ import type {
   DemoStep,
   DemoAction,
   WaitCondition,
-} from "@jhandel/sceneforge-shared";
+} from "@t3lnet/sceneforge-shared";
 import {
   parseFromYAML,
   validateDemoDefinition,
   resolveTarget,
   resolvePath,
-} from "@jhandel/sceneforge-shared";
+} from "@t3lnet/sceneforge-shared";
 import {
   ScriptGenerator,
   createScriptGenerator,
-} from "@jhandel/sceneforge-generation";
+} from "@t3lnet/sceneforge-generation";
 import {
   injectCursorOverlay,
   removeCursorOverlay,

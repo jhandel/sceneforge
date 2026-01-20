@@ -4,7 +4,7 @@ import { chromium } from "@playwright/test";
 import {
   loadDemoDefinition,
   runDemo,
-} from "@jhandel/sceneforge-playwright";
+} from "@t3lnet/sceneforge-playwright";
 import { config as loadEnv } from "dotenv";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import {

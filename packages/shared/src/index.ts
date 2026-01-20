@@ -1,5 +1,5 @@
 /**
- * @jhandel/sceneforge-shared
+ * @t3lnet/sceneforge-shared
  *
  * Shared types and utilities for demo recording and playback.
  * Used by both the Playwright CLI and the Chrome extension.

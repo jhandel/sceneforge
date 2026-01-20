@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import type { DemoDefinition } from "@jhandel/sceneforge-shared";
+import type { DemoDefinition } from "@t3lnet/sceneforge-shared";
 import { runDemo } from "../src/demo-runner";
 
 test("runDemo executes recorded actions", async ({ page }, testInfo) => {

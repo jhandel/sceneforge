@@ -1,5 +1,5 @@
 {
-  "name": "@jhandel/sceneforge-cli",
+  "name": "@t3lnet/sceneforge-cli",
   "version": "0.1.0",
   "private": true,
   "description": "SceneForge CLI for demo video generation and post-processing",
@@ -9,8 +9,8 @@
   },
   "files": ["src", "bin"],
   "dependencies": {
-    "@jhandel/sceneforge-generation": "workspace:*",
-    "@jhandel/sceneforge-playwright": "workspace:*",
+    "@t3lnet/sceneforge-generation": "workspace:*",
+    "@t3lnet/sceneforge-playwright": "workspace:*",
     "dotenv": "^17.2.3",
     "@playwright/test": "^1.57.0",
     "tsx": "^4.20.5"

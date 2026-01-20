@@ -1,7 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import { chromium } from "@playwright/test";
-import { loadDemoDefinition, runDemo } from "@jhandel/sceneforge-playwright";
+import { loadDemoDefinition, runDemo } from "@t3lnet/sceneforge-playwright";
 import { config as loadEnv } from "dotenv";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import {

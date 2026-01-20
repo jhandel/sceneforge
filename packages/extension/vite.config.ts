@@ -73,7 +73,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
-      "@jhandel/sceneforge-shared": resolve(__dirname, "../shared/src"),
+      "@t3lnet/sceneforge-shared": resolve(__dirname, "../shared/src"),
     },
   },
   build: {

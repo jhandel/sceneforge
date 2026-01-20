@@ -1,6 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import { loadDemoDefinition } from "@jhandel/sceneforge-playwright";
+import { loadDemoDefinition } from "@t3lnet/sceneforge-playwright";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import { ensureDir, getOutputPaths, resolveRoot, toAbsolute } from "../utils/paths.js";
 import { runRecordDemoCommand } from "./record-demo.js";

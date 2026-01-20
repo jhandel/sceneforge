@@ -1,5 +1,5 @@
 /**
- * Re-export YAML utilities from @jhandel/sceneforge-shared.
+ * Re-export YAML utilities from @t3lnet/sceneforge-shared.
  * This allows existing imports in the extension to continue working.
  */
 
@@ -19,4 +19,4 @@ export {
   createNavigateAction,
   createTypeAction,
   createUploadAction,
-} from "@jhandel/sceneforge-shared";
+} from "@t3lnet/sceneforge-shared";

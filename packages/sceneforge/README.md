@@ -1,4 +1,4 @@
-# @jhandel/sceneforge
+# @t3lnet/sceneforge
 
 SceneForge runner + generation utilities for YAML-driven demos.
 
