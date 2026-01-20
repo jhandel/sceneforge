@@ -27,13 +27,13 @@ await runDemoFromFile("./examples/create-dxf-quote.yaml", {
 });
 ```
 
-## CLI (optional)
+## CLI
 
-The CLI is a separate package and lives in the repo. Use it for full pipeline runs (record → split → voiceover → add-audio → concat):
+The CLI is included in this package. After install you can run `sceneforge` via `npx` or your package manager:
 
 ```bash
-bunx @t3lnet/sceneforge-cli record --definition examples/create-dxf-quote.yaml --base-url http://localhost:5173
-bunx @t3lnet/sceneforge-cli pipeline --definition examples/create-dxf-quote.yaml --base-url http://localhost:5173 --clean
+npx sceneforge record --definition examples/create-dxf-quote.yaml --base-url http://localhost:5173
+npx sceneforge pipeline --definition examples/create-dxf-quote.yaml --base-url http://localhost:5173 --clean
 ```
 
 ## Extension (optional)

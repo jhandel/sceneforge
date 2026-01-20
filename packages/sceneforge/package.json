@@ -1,6 +1,6 @@
 {
   "name": "@t3lnet/sceneforge",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "SceneForge runner and generation utilities for YAML-driven demos",
   "license": "MIT",
   "author": "T3LNET",
@@ -23,12 +23,16 @@
       "require": "./dist/index.cjs"
     }
   },
+  "bin": {
+    "sceneforge": "./cli/cli.js"
+  },
   "publishConfig": {
     "access": "public"
   },
   "sideEffects": false,
   "files": [
     "dist",
+    "cli",
     "README.md",
     "LICENSE"
   ],
@@ -36,6 +40,7 @@
     "build": "tsup src/index.ts --format esm,cjs --dts --sourcemap --clean --out-dir dist"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "elevenlabs": "^1.59.0",
     "yaml": "^2.7.0",
     "zod": "^3.24.2"
