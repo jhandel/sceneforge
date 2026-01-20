@@ -1,0 +1,161 @@
+name: "new-demo"
+title: "New Demo"
+steps:
+  - id: "StartNewQuote"
+    script: "Lets create a quote togeather! First we start by clicking \"New
+      Quote\" in the top left. You can then upload your file by drag and drop or by selecting it from your computer."
+    actions:
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"New Quote\")"
+        highlight: true
+      - action: "upload"
+        target:
+          type: "selector"
+          selector: "div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > input"
+        file: "/Users/jhandel/code/fiber-laser-cutting-quote-tool/test_models/dxf/tableSupport.dxf"
+      - action: "wait"
+        waitFor:
+          type: "text"
+          value: "sources found"
+          timeout: 30000
+  - id: "ConfigureSources"
+    script: "Next up in the wizard is configuring sources. Here you decide how to handle each
+      of the objects identified in the files you uploaded. In this case we have 4 sources all on
+      diffrent layers in the same DXF. We will ignore two of them and merge one of them with another."
+    actions:
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"Next: Configure Sources\")"
+        highlight: true
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"Separate Parts\") >> nth=0"
+        highlight: true
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "[data-radix-popper-content-wrapper] [role=\"listbox\"]
+            [role=\"option\"]:has-text(\"Ignore\")"
+        highlight: true
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"Separate Parts\") >> nth=0"
+        highlight: true
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "[data-radix-popper-content-wrapper] [role=\"listbox\"]
+            [role=\"option\"]:has-text(\"Ignore\")"
+        highlight: true
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"Separate Parts\") >> nth=0"
+        highlight: true
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "[data-radix-popper-content-wrapper] [role=\"listbox\"] [role=\"option\"]:has-text(\"Merge
+            With...\")"
+        highlight: true
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"Next: Customer & Options\")"
+        highlight: true
+      - action: "wait"
+        waitFor:
+          type: "text"
+          value: "Customer & Contact *Material*Machine *Select machi"
+          timeout: 15000
+  - id: "ConfigureCustomerMachineMaterial"
+    script: "Now we move on to configuring the customer, material, and machine. We need to pick our customer (or create a new one), select our material, and select our machine.  This information is used to calculate pricing, operator time, and material usage."
+    actions:
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "input[placeholder=\"Search by name, email, or company...\"]"
+        highlight: true
+      - action: "wait"
+        waitFor:
+          type: "selector"
+          value: "ul[role=\"listbox\"] li[role=\"option\"]:has-text(\"Brad the Engineer\")"
+          timeout: 15000
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "ul[role=\"listbox\"] li[role=\"option\"]:has-text(\"Brad the Engineer\")"
+        highlight: true
+      - action: "wait"
+        waitFor:
+          type: "selectorHidden"
+          value: "ul[role=\"listbox\"]"
+          timeout: 15000
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button[aria-label=\"Material selector\"]"
+        highlight: true
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "[data-radix-popper-content-wrapper] [role=\"listbox\"]
+            div[role=\"button\"]:has-text(\"Al\")"
+        highlight: true
+      - action: "wait"
+        waitFor:
+          type: "text"
+          value: "6061-T6"
+          timeout: 15000
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "[data-radix-popper-content-wrapper] [role=\"listbox\"]
+            div[role=\"button\"]:has-text(\"6061-T6\")"
+        highlight: true
+      - action: "wait"
+        waitFor:
+          type: "text"
+          value: "Al - 6061-T6 - 1.6 mm (1.6 mm)"
+          timeout: 15000
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "[data-radix-popper-content-wrapper] [role=\"listbox\"] [role=\"option\"]:has-text(\"Al -
+            6061-T6 - 1.6 mm (1.6 mm)\")"
+        highlight: true
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"Select machine...\")"
+        highlight: true
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "[data-radix-popper-content-wrapper] [role=\"listbox\"]
+            [role=\"option\"]:has-text(\"Atlas-Cutter-123\")"
+        highlight: true
+  - id: "Generate Quote"
+    script: "the last step is to press \"Create Quote\". Once the quote information is processed and run through the pricing calculator; the details of your quote will be loaded for review. "
+    actions:
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"Create Quote\")"
+        highlight: true
+        waitFor:
+          type: "text"
+          value: "Creating Quote..."
+          timeout: 15000
+      - action: "wait"
+        waitFor:
+          type: "text"
+          value: "View quote as customer"
+          timeout: 15000
+      - action: "wait"
+        duration: 2000

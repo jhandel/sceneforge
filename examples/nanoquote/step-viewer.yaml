@@ -1,0 +1,131 @@
+name: step-viewer
+title: "Working with STEP Files and 3D Viewer"
+description: |
+  This demo shows how to upload STEP files and use the perspective
+  picker to select the optimal projection direction for cutting.
+
+steps:
+  # Step 1: Navigate and start new quote
+  - id: start-step-quote
+    script: "Let's create a quote using a 3D STEP file to see the perspective picker in action. We'll start by creating a new quote."
+    actions:
+      - action: navigate
+        path: "/app/{orgSlug}/quotes"
+        waitFor:
+          type: text
+          value: "Quotes"
+      - action: wait
+        duration: 800
+      - action: click
+        target:
+          type: button
+          text: "New Quote"
+        highlight: true
+        waitFor:
+          type: text
+          value: "New Quote"
+
+  # Step 2: Upload STEP file and wait for processing
+  - id: upload-step-file
+    script: "Upload a STEP file. The system will parse the 3D geometry and extract individual bodies. STEP file processing may take longer than DXF files since it involves parsing complex 3D geometry."
+    actions:
+      - action: wait
+        duration: 500
+      - action: upload
+        file: "test_models/step/2_objs_test.step"
+      - action: wait
+        waitFor:
+          type: text
+          value: "source found"
+          timeout: 60000
+      - action: wait
+        duration: 1500
+
+  # Step 3: Go to sources configuration
+  - id: configure-step-sources
+    script: "Now let's configure the parts from our STEP file. Each body from the STEP file becomes a separate source that can be configured independently."
+    actions:
+      - action: click
+        target:
+          type: button
+          text: "Next: Configure Sources"
+        highlight: true
+        waitFor:
+          type: text
+          value: "Configure each source"
+      - action: wait
+        duration: 1500
+
+  # Step 4: Open the perspective picker
+  - id: open-perspective-picker
+    script: "Click Change View to open the perspective picker. The 3D viewer shows the part and lets you choose the optimal cutting angle."
+    actions:
+      - action: click
+        target:
+          type: button
+          text: "Change View"
+        highlight: true
+        waitFor:
+          type: text
+          value: "Select Projection Direction"
+          timeout: 15000
+      - action: wait
+        duration: 1500
+
+  # Step 5: Rotate the 3D model
+  - id: rotate-3d-model
+    script: "Click and drag on the 3D model to rotate it and examine different angles. You can rotate the model to find an angle that shows the features you want to cut clearly."
+    actions:
+      - action: drag
+        target:
+          type: selector
+          selector: "canvas"
+        drag:
+          deltaX: 120
+          deltaY: 30
+          steps: 25
+      - action: wait
+        duration: 400
+      - action: drag
+        target:
+          type: selector
+          selector: "canvas"
+        drag:
+          deltaX: -80
+          deltaY: -60
+          steps: 20
+      - action: wait
+        duration: 400
+      - action: drag
+        target:
+          type: selector
+          selector: "canvas"
+        drag:
+          deltaX: 50
+          deltaY: 40
+          steps: 18
+      - action: wait
+        duration: 800
+
+  # Step 6: Use preset buttons
+  - id: use-preset-view
+    script: "Or use the preset buttons to quickly select standard viewing angles like Top, Front, or Side. The 2D preview shows how the part will look when cut from this direction."
+    actions:
+      - action: click
+        target:
+          type: button
+          text: "Top"
+        highlight: true
+      - action: wait
+        duration: 2000
+
+  # Step 7: Close and conclude
+  - id: conclusion
+    script: "You can apply the selected view or cancel to keep the current projection. The perspective picker makes it easy to optimize your cutting strategy for complex 3D parts."
+    actions:
+      - action: click
+        target:
+          type: button
+          text: "Cancel"
+      - action: wait
+        duration: 1000
