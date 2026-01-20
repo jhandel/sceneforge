@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./packages/extension/src/*"],
+      "@demo-tools/shared": ["./packages/shared/src"],
+      "@demo-tools/shared/*": ["./packages/shared/src/*"],
+      "@demo-tools/playwright": ["./packages/playwright/src"],
+      "@demo-tools/playwright/*": ["./packages/playwright/src/*"],
+      "@demo-tools/generation": ["./packages/generation/src"],
+      "@demo-tools/generation/*": ["./packages/generation/src/*"]
+    }
+  },
+  "include": ["packages/*/src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

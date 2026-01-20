@@ -1,0 +1,27 @@
+{
+  "name": "@demo-tools/playwright",
+  "version": "0.1.0",
+  "description": "Playwright driver for demo recording and playback",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "files": ["src"],
+  "dependencies": {
+    "@demo-tools/generation": "workspace:*",
+    "@demo-tools/shared": "workspace:*",
+    "yaml": "^2.7.0"
+  },
+  "peerDependencies": {
+    "@playwright/test": "^1.49.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "typescript": "^5.7.3"
+  }
+}

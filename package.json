@@ -1,0 +1,24 @@
+{
+  "name": "demo-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tools for recording and playing demo videos from YAML definitions",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter @demo-tools/extension dev",
+    "build": "bun run build:shared && bun run build:playwright && bun run build:extension",
+    "build:shared": "echo 'Shared package uses TypeScript source directly'",
+    "build:playwright": "echo 'Playwright package uses TypeScript source directly'",
+    "build:extension": "bun run --filter @demo-tools/extension build",
+    "typecheck": "tsc --noEmit",
+    "chrome": "open -a 'Google Chrome' 'chrome://extensions'"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.0.304",
+    "@types/node": "^20.10.6",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Demo YAML Creator",
+  "version": "1.0.0",
+  "description": "Record user interactions and generate demo YAML files for Playwright-based demo runner",
+  "permissions": [
+    "activeTab",
+    "sidePanel",
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_title": "Demo YAML Creator"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

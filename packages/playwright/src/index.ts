@@ -1,0 +1,42 @@
+/**
+ * @demo-tools/playwright
+ *
+ * Playwright driver for demo recording and playback.
+ * Used to execute demo definitions and record videos.
+ */
+
+// Re-export shared types for convenience
+export type {
+  DemoDefinition,
+  DemoStep,
+  DemoAction,
+  ActionType,
+  StepTarget,
+  WaitCondition,
+  DragConfig,
+} from "@demo-tools/shared";
+
+// Demo runner
+export {
+  runDemo,
+  runDemoFromFile,
+  loadDemoDefinition,
+  discoverDemos,
+  waitForOrgSlug,
+  type DemoContext,
+  type DemoResult,
+  type StepTiming,
+  type RunDemoOptions,
+} from "./demo-runner";
+
+// Cursor overlay (for custom implementations)
+export {
+  injectCursorOverlay,
+  removeCursorOverlay,
+  moveCursorTo,
+  triggerClickRipple,
+  highlightElement,
+  demoClick,
+  demoHover,
+  demoType,
+} from "./cursor-overlay";
