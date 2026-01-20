@@ -1,9 +1,35 @@
 /**
- * Selector generator for the Demo YAML Creator.
+ * Selector generator for the SceneForge.
  * Generates stable CSS selectors with multiple strategies.
  */
 
-import type { SelectorCandidate, ElementInfo } from "../shared/types";
+import type { SelectorCandidate, ElementInfo, SelectorConfig } from "../shared/types";
+import { DEFAULT_SELECTOR_CONFIG, normalizeSelectorConfig } from "../shared/selector-config";
+
+const PORTAL_STRATEGY_SUFFIX = "-in-portal";
+let selectorConfig: SelectorConfig = { ...DEFAULT_SELECTOR_CONFIG };
+
+export function setSelectorConfig(config: SelectorConfig): void {
+  selectorConfig = normalizeSelectorConfig(config);
+}
+
+function getStrategyKey(strategy: string): string {
+  if (strategy.endsWith(PORTAL_STRATEGY_SUFFIX)) {
+    return strategy.slice(0, -PORTAL_STRATEGY_SUFFIX.length);
+  }
+  return strategy;
+}
+
+function filterCandidatesByConfig(
+  candidates: SelectorCandidate[],
+  config: SelectorConfig
+): SelectorCandidate[] {
+  if (!config.enabledStrategies.length) {
+    return candidates;
+  }
+  const enabled = new Set(config.enabledStrategies);
+  return candidates.filter((candidate) => enabled.has(getStrategyKey(candidate.strategy)));
+}
 
 /**
  * Detects if an element is inside a portal (Radix, Headless UI, etc.)
@@ -327,7 +353,9 @@ export function generateSelectorCandidates(element: Element): SelectorCandidate[
 export function getBestSelector(element: Element): string {
   try {
     const candidates = generateSelectorCandidates(element);
-    const baseSelector = candidates[0]?.selector || generateCSSPath(element);
+    const filteredCandidates = filterCandidatesByConfig(candidates, selectorConfig);
+    const rankedCandidates = filteredCandidates.length > 0 ? filteredCandidates : candidates;
+    const baseSelector = rankedCandidates[0]?.selector || generateCSSPath(element);
 
     // Check if the selector matches multiple elements
     const matchResult = testSelector(baseSelector);

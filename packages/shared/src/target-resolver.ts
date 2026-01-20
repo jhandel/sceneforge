@@ -60,24 +60,18 @@ export function resolveTarget(target: StepTarget): string {
 
 /**
  * Replaces template variables in paths.
- * Supports: {orgSlug}, {baseURL}
+ * Supports: {baseURL}.
  */
 export function resolvePath(
   pathTemplate: string,
-  variables: Record<string, string>
+  variables: Record<string, string | undefined>
 ): string {
   let result = pathTemplate;
   for (const [key, value] of Object.entries(variables)) {
+    if (value === undefined) {
+      continue;
+    }
     result = result.replace(new RegExp(`\\{${key}\\}`, "g"), value);
   }
   return result;
-}
-
-/**
- * Extracts the org slug from a URL path.
- * Expects paths like /app/{orgSlug}/...
- */
-export function extractOrgSlug(pathname: string): string | null {
-  const match = pathname.match(/\/app\/([^/]+)/);
-  return match ? match[1] : null;
 }

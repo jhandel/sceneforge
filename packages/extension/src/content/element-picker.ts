@@ -31,8 +31,8 @@ function getRealElementAtPoint(x: number, y: number): Element | null {
   for (const element of elements) {
     // Skip our overlay elements
     if (
-      element.id?.startsWith("demo-yaml-creator") ||
-      element.closest("#demo-yaml-creator-overlay")
+      element.id?.startsWith("sceneforge") ||
+      element.closest("#sceneforge-overlay")
     ) {
       continue;
     }
@@ -79,8 +79,8 @@ function handleClick(event: MouseEvent): void {
   // Check if clicking on our overlay elements - let their handlers work
   const clickTarget = event.target as Element;
   if (
-    clickTarget?.id?.startsWith("demo-yaml-creator") ||
-    clickTarget?.closest("#demo-yaml-creator-overlay")
+    clickTarget?.id?.startsWith("sceneforge") ||
+    clickTarget?.closest("#sceneforge-overlay")
   ) {
     return;
   }
@@ -96,7 +96,7 @@ function handleClick(event: MouseEvent): void {
   // Generate result
   const candidates = generateSelectorCandidates(element);
   const result: PickerResult = {
-    selector: candidates[0]?.selector || getBestSelector(element),
+    selector: getBestSelector(element),
     selectorCandidates: candidates,
     elementInfo: getElementInfo(element),
   };

@@ -405,7 +405,7 @@ export class DOMChangeDetector {
         mutation.addedNodes.forEach(node => {
           if (node instanceof Element) {
             // Skip our overlay elements
-            if (node.id?.startsWith("demo-yaml") || node.closest("#demo-yaml-creator-overlay")) {
+            if (node.id?.startsWith("sceneforge") || node.closest("#sceneforge-overlay")) {
               return;
             }
 
@@ -456,7 +456,7 @@ export class DOMChangeDetector {
           const element = mutation.target;
 
           // Skip our overlay elements
-          if (element.id?.startsWith("demo-yaml") || element.closest("#demo-yaml-creator-overlay")) {
+          if (element.id?.startsWith("sceneforge") || element.closest("#sceneforge-overlay")) {
             return;
           }
 

@@ -348,11 +348,13 @@ export async function demoClick(
     highlight?: boolean;
     delayAfter?: number;
     delayBefore?: number;
+    timeoutMs?: number;
   }
 ): Promise<void> {
   const element = page.locator(selector).first();
+  const timeout = options?.timeoutMs ?? 10000;
   await element.scrollIntoViewIfNeeded();
-  await element.waitFor({ state: "visible", timeout: 10000 });
+  await element.waitFor({ state: "visible", timeout });
 
   const boundingBox = await element.boundingBox();
   if (!boundingBox) {
@@ -381,7 +383,7 @@ export async function demoClick(
   await triggerClickRipple(page);
 
   // Perform actual click
-  await element.click();
+  await element.click({ timeout });
 
   // Wait for ripple animation to complete
   await page.waitForTimeout(200);
@@ -398,11 +400,12 @@ export async function demoClick(
 export async function demoHover(
   page: Page,
   selector: string,
-  options?: { highlight?: boolean }
+  options?: { highlight?: boolean; timeoutMs?: number }
 ): Promise<void> {
   const element = page.locator(selector).first();
+  const timeout = options?.timeoutMs ?? 10000;
   await element.scrollIntoViewIfNeeded();
-  await element.waitFor({ state: "visible", timeout: 10000 });
+  await element.waitFor({ state: "visible", timeout });
 
   const boundingBox = await element.boundingBox();
   if (!boundingBox) {
@@ -418,7 +421,7 @@ export async function demoHover(
     await highlightElement(page, selector);
   }
 
-  await element.hover();
+  await element.hover({ timeout });
   await page.waitForTimeout(300);
 }
 

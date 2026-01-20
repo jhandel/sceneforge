@@ -2,7 +2,15 @@
  * Message types for Chrome extension communication.
  */
 
-import type { DemoDefinition, RecordedInteraction, PickerResult, RecordingState, TestSelectorResponse } from "./types";
+import type {
+  DemoDefinition,
+  RecordedInteraction,
+  PickerResult,
+  RecordingState,
+  TestSelectorResponse,
+  PrivacyConfig,
+  SelectorConfig,
+} from "./types";
 
 export type { TestSelectorResponse };
 
@@ -20,6 +28,8 @@ export interface SuggestedWait {
 export type MessageType =
   | "START_RECORDING"
   | "STOP_RECORDING"
+  | "TOGGLE_RECORDING_PAUSE"
+  | "SET_RECORDING_PAUSED"
   | "START_PICKER"
   | "STOP_PICKER"
   | "INTERACTION_RECORDED"
@@ -31,6 +41,9 @@ export type MessageType =
   | "STATE_UPDATE"
   | "UPDATE_DEMO"
   | "SET_CURRENT_STEP"
+  | "UPDATE_PRIVACY_CONFIG"
+  | "UPDATE_SELECTOR_CONFIG"
+  | "CLEAR_ERROR"
   | "TEST_SELECTOR"
   | "HIGHLIGHT_ELEMENT"
   | "CLEAR_HIGHLIGHT"
@@ -47,10 +60,22 @@ interface BaseMessage {
 // Recording control messages
 export interface StartRecordingMessage extends BaseMessage {
   type: "START_RECORDING";
+  privacyConfig?: PrivacyConfig;
+  selectorConfig?: SelectorConfig;
+  isPaused?: boolean;
 }
 
 export interface StopRecordingMessage extends BaseMessage {
   type: "STOP_RECORDING";
+}
+
+export interface ToggleRecordingPauseMessage extends BaseMessage {
+  type: "TOGGLE_RECORDING_PAUSE";
+}
+
+export interface SetRecordingPausedMessage extends BaseMessage {
+  type: "SET_RECORDING_PAUSED";
+  isPaused: boolean;
 }
 
 // Picker control messages
@@ -121,6 +146,20 @@ export interface SetCurrentStepMessage extends BaseMessage {
   stepIndex: number;
 }
 
+export interface UpdatePrivacyConfigMessage extends BaseMessage {
+  type: "UPDATE_PRIVACY_CONFIG";
+  privacyConfig: PrivacyConfig;
+}
+
+export interface UpdateSelectorConfigMessage extends BaseMessage {
+  type: "UPDATE_SELECTOR_CONFIG";
+  selectorConfig: SelectorConfig;
+}
+
+export interface ClearErrorMessage extends BaseMessage {
+  type: "CLEAR_ERROR";
+}
+
 // Selector testing messages
 export interface TestSelectorMessage extends BaseMessage {
   type: "TEST_SELECTOR";
@@ -172,6 +211,8 @@ export interface PlayStepResultMessage extends BaseMessage {
 export type ExtensionMessage =
   | StartRecordingMessage
   | StopRecordingMessage
+  | ToggleRecordingPauseMessage
+  | SetRecordingPausedMessage
   | StartPickerMessage
   | StopPickerMessage
   | InteractionRecordedMessage
@@ -183,6 +224,9 @@ export type ExtensionMessage =
   | StateUpdateMessage
   | UpdateDemoMessage
   | SetCurrentStepMessage
+  | UpdatePrivacyConfigMessage
+  | UpdateSelectorConfigMessage
+  | ClearErrorMessage
   | TestSelectorMessage
   | HighlightElementMessage
   | ClearHighlightMessage

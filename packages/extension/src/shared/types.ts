@@ -1,5 +1,5 @@
 /**
- * Re-export types from @demo-tools/shared.
+ * Re-export types from @jhandel/sceneforge-shared.
  * This allows existing imports in the extension to continue working.
  */
 
@@ -15,7 +15,9 @@ export type {
   RecordedInteraction,
   SelectorStrategy,
   SelectorCandidate,
+  PrivacyConfig,
+  SelectorConfig,
   RecordingState,
   PickerResult,
   TestSelectorResponse,
-} from "@demo-tools/shared";
+} from "@jhandel/sceneforge-shared";

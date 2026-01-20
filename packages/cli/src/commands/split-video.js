@@ -1,15 +1,16 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import { checkFFmpeg, execAsync } from "../utils/media.js";
+import { checkFFmpeg, getMediaDuration, runFFmpeg } from "../utils/media.js";
 import { getOutputPaths, readJson, resolveRoot } from "../utils/paths.js";
 import { getFlagValue, hasFlag } from "../utils/args.js";
+import { sanitizeFileSegment } from "../utils/sanitize.js";
 
 function printHelp() {
   console.log(`
 Split recorded demo video into per-step clips
 
 Usage:
-  demo-yaml split [options]
+  sceneforge split [options]
 
 Options:
   --demo <name>         Process a specific demo by name
@@ -19,8 +20,8 @@ Options:
   --help, -h            Show this help message
 
 Examples:
-  demo-yaml split --demo create-quote
-  demo-yaml split --all
+  sceneforge split --demo create-quote
+  sceneforge split --all
 `);
 }
 
@@ -82,16 +83,32 @@ async function splitDemo(demoName, paths) {
   console.log(`[split] Video: ${videoPath}`);
   console.log(`[split] Steps: ${script.stepBoundaries.length}`);
 
+  const videoDurationSec = await getMediaDuration(videoPath);
+  const videoDurationMs = Math.round(videoDurationSec * 1000);
+
   const stepClipsDir = path.join(paths.videosDir, demoName);
   await fs.mkdir(stepClipsDir, { recursive: true });
 
   for (const boundary of script.stepBoundaries) {
     const isFirstStep = boundary.stepIndex === 0;
     const startMs = isFirstStep ? 0 : boundary.videoStartMs;
+    if (startMs >= videoDurationMs) {
+      console.warn(`[split]   Skipping ${boundary.stepId}: start beyond video duration`);
+      continue;
+    }
+    const clampedEndMs = Math.min(boundary.videoEndMs, videoDurationMs);
+    if (clampedEndMs <= startMs) {
+      console.warn(`[split]   Skipping ${boundary.stepId}: invalid duration after clamp`);
+      continue;
+    }
     const startSec = startMs / 1000;
-    const duration = (boundary.videoEndMs - startMs) / 1000;
+    const duration = (clampedEndMs - startMs) / 1000;
     const paddedIndex = String(boundary.stepIndex + 1).padStart(2, "0");
-    const outputFileName = `step_${paddedIndex}_${boundary.stepId}.mp4`;
+    const safeStepId = sanitizeFileSegment(
+      boundary.stepId,
+      `step-${boundary.stepIndex + 1}`
+    );
+    const outputFileName = `step_${paddedIndex}_${safeStepId}.mp4`;
     const outputPath = path.join(stepClipsDir, outputFileName);
 
     console.log(
@@ -99,10 +116,21 @@ async function splitDemo(demoName, paths) {
     );
 
     try {
-      await execAsync(
-        `ffmpeg -y -i "${videoPath}" -ss ${startSec} -t ${duration} -c:v libx264 -preset fast -an "${outputPath}"`,
-        { maxBuffer: 50 * 1024 * 1024 }
-      );
+      await runFFmpeg([
+        "-y",
+        "-i",
+        videoPath,
+        "-ss",
+        String(startSec),
+        "-t",
+        String(duration),
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-an",
+        outputPath,
+      ]);
     } catch (error) {
       console.error(`[split] ✗ Failed to extract step ${boundary.stepId}:`, error);
       throw error;
@@ -115,18 +143,25 @@ async function splitDemo(demoName, paths) {
     title: script.title,
     generatedAt: new Date().toISOString(),
     sourceVideo: videoPath,
+    sourceVideoDurationMs: videoDurationMs,
     steps: script.stepBoundaries.map((boundary) => {
       const paddedIndex = String(boundary.stepIndex + 1).padStart(2, "0");
       const isFirstStep = boundary.stepIndex === 0;
       const splitStartMs = isFirstStep ? 0 : boundary.videoStartMs;
+      const clampedEndMs = Math.min(boundary.videoEndMs, videoDurationMs);
+      const safeStepId = sanitizeFileSegment(
+        boundary.stepId,
+        `step-${boundary.stepIndex + 1}`
+      );
       return {
         stepId: boundary.stepId,
+        safeStepId,
         stepIndex: boundary.stepIndex,
-        videoFile: path.join(stepClipsDir, `step_${paddedIndex}_${boundary.stepId}.mp4`),
+        videoFile: path.join(stepClipsDir, `step_${paddedIndex}_${safeStepId}.mp4`),
         splitStartMs,
         originalStartMs: boundary.videoStartMs,
         originalEndMs: boundary.videoEndMs,
-        durationMs: boundary.videoEndMs - splitStartMs,
+        durationMs: Math.max(0, clampedEndMs - splitStartMs),
       };
     }),
   };

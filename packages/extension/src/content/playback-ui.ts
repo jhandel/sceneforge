@@ -3,8 +3,8 @@
  */
 
 const PlaybackIds = {
-  OVERLAY: "demo-yaml-playback-overlay",
-  PANEL: "demo-yaml-playback-panel",
+  OVERLAY: "sceneforge-playback-overlay",
+  PANEL: "sceneforge-playback-panel",
 } as const;
 
 interface PlaybackState {

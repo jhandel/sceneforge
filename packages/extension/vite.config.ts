@@ -2,12 +2,13 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync, rmSync } from "fs";
+import { build as esbuild } from "esbuild";
 
 // Custom plugin to handle Chrome extension build
 function chromeExtensionPlugin() {
   return {
     name: "chrome-extension",
-    closeBundle() {
+    async closeBundle() {
       const distDir = resolve(__dirname, "../../dist");
 
       // Copy manifest.json
@@ -45,6 +46,22 @@ function chromeExtensionPlugin() {
         });
       }
 
+      // Bundle content script as IIFE (classic script) for programmatic injection compatibility
+      console.log("Bundling content-script as IIFE for compatibility...");
+      await esbuild({
+        entryPoints: [resolve(__dirname, "src/content/content-script.ts")],
+        outfile: resolve(distDir, "content-script.js"),
+        bundle: true,
+        format: "iife",
+        target: ["chrome110"],
+        platform: "browser",
+        sourcemap: true,
+        tsconfig: resolve(__dirname, "../../tsconfig.json"),
+        define: {
+          "process.env.NODE_ENV": '"production"',
+        },
+      });
+
       console.log("Chrome extension files prepared in dist/");
     },
   };
@@ -56,7 +73,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
-      "@demo-tools/shared": resolve(__dirname, "../shared/src"),
+      "@jhandel/sceneforge-shared": resolve(__dirname, "../shared/src"),
     },
   },
   build: {

@@ -1,5 +1,5 @@
 /**
- * Content script for Demo YAML Creator.
+ * Content script for SceneForge.
  * Captures user interactions and handles element picking.
  */
 
@@ -8,11 +8,13 @@ import {
   getBestSelector,
   getElementInfo,
   testSelector,
+  setSelectorConfig,
 } from "./selector-generator";
 import { startPicker, stopPicker } from "./element-picker";
 import {
   showRecordingIndicator,
   hideRecordingIndicator,
+  setRecordingIndicatorPaused,
   flashClick,
   highlightElement,
   clearHighlight,
@@ -32,8 +34,15 @@ import {
   showPlaybackError,
   formatActionText,
 } from "./playback-ui";
-import type { RecordedInteraction, TestSelectorResponse } from "../shared/types";
+import type {
+  PrivacyConfig,
+  RecordedInteraction,
+  SelectorConfig,
+  TestSelectorResponse,
+} from "../shared/types";
 import type { ExtensionMessage } from "../shared/messages";
+import { DEFAULT_PRIVACY_CONFIG, normalizePrivacyConfig } from "../shared/privacy";
+import { DEFAULT_SELECTOR_CONFIG, normalizeSelectorConfig } from "../shared/selector-config";
 
 // Guard against duplicate injection - check before any initialization
 const windowWithGuard = window as unknown as { __demoYamlCreatorLoaded?: boolean };
@@ -44,7 +53,12 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
 
   // State
   let isRecording = false;
+  let isPaused = false;
+  let privacyConfig: PrivacyConfig = { ...DEFAULT_PRIVACY_CONFIG };
+  let selectorConfig: SelectorConfig = { ...DEFAULT_SELECTOR_CONFIG };
   let lastNavigationUrl = window.location.href;
+  let lastDetectionStart = 0;
+  const DETECTION_COOLDOWN_MS = 800;
 
   // DOM change detector for recording (to suggest wait conditions)
   let recordingChangeDetector: DOMChangeDetector | null = null;
@@ -87,6 +101,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
   let lastClickY = 0;
   const CLICK_DEBOUNCE_MS = 300; // Ignore same-element clicks within 300ms
   const CLICK_POSITION_THRESHOLD = 50; // If click is more than 50px away, it's a different element
+  const PAUSE_HOTKEY = { key: "p", ctrlKey: true, shiftKey: true };
 
   /**
    * Sends a recorded interaction to the service worker.
@@ -114,6 +129,120 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
     }
   }
 
+  function updatePrivacyConfig(config: PrivacyConfig): void {
+    privacyConfig = normalizePrivacyConfig(config);
+  }
+
+  function updateSelectorConfig(config: SelectorConfig): void {
+    selectorConfig = normalizeSelectorConfig(config);
+    setSelectorConfig(selectorConfig);
+  }
+
+  function matchesSelectorList(target: Element, selectors: string[]): boolean {
+    for (const selector of selectors) {
+      if (!selector.trim()) continue;
+      try {
+        if (target.matches(selector) || target.closest(selector)) {
+          return true;
+        }
+      } catch (error) {
+        console.warn(`[content-script] Invalid selector in privacy list: ${selector}`, error);
+      }
+    }
+    return false;
+  }
+
+  const SENSITIVE_FIELD_KEYWORDS = [
+    "password",
+    "passcode",
+    "secret",
+    "token",
+    "api",
+    "key",
+    "auth",
+    "otp",
+    "2fa",
+    "ssn",
+    "social",
+    "credit",
+    "card",
+    "cvv",
+    "cvc",
+    "pin",
+    "bank",
+    "routing",
+    "iban",
+  ];
+
+  function hasSensitiveKeyword(value: string | null | undefined): boolean {
+    if (!value) return false;
+    const lower = value.toLowerCase();
+    return SENSITIVE_FIELD_KEYWORDS.some((keyword) => lower.includes(keyword));
+  }
+
+  function isSensitiveInput(
+    target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+  ): boolean {
+    if (target instanceof HTMLInputElement) {
+      if (target.type === "password") return true;
+      const autocomplete = target.getAttribute("autocomplete") || "";
+      if (autocomplete.toLowerCase().includes("password")) return true;
+    }
+    return (
+      hasSensitiveKeyword(target.name) ||
+      hasSensitiveKeyword(target.id) ||
+      hasSensitiveKeyword(target.getAttribute("aria-label")) ||
+      hasSensitiveKeyword(target.getAttribute("placeholder"))
+    );
+  }
+
+  function shouldSkipInput(
+    target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+  ): boolean {
+    if (privacyConfig.allowlist.length > 0 && !matchesSelectorList(target, privacyConfig.allowlist)) {
+      return true;
+    }
+    if (privacyConfig.denylist.length > 0 && matchesSelectorList(target, privacyConfig.denylist)) {
+      return true;
+    }
+    if (privacyConfig.redactSensitiveInputs && isSensitiveInput(target)) {
+      return true;
+    }
+    return false;
+  }
+
+  function setPausedState(paused: boolean): void {
+    isPaused = paused;
+    if (isPaused && recordingChangeDetector) {
+      recordingChangeDetector.stop();
+      recordingChangeDetector = null;
+      hideDetectingIndicator();
+    }
+    updateRecordingIndicatorState();
+  }
+
+  function updateRecordingIndicatorState(): void {
+    if (!isRecording) return;
+    showRecordingIndicator();
+    setRecordingIndicatorPaused(isPaused);
+  }
+
+  function handlePauseHotkey(event: KeyboardEvent): void {
+    if (!isRecording) return;
+    if (event.key.toLowerCase() !== PAUSE_HOTKEY.key) return;
+    if (event.ctrlKey !== PAUSE_HOTKEY.ctrlKey || event.shiftKey !== PAUSE_HOTKEY.shiftKey) {
+      return;
+    }
+    event.preventDefault();
+    chrome.runtime.sendMessage({ type: "TOGGLE_RECORDING_PAUSE" }).then((response) => {
+      if (response && typeof response.isPaused === "boolean") {
+        setPausedState(response.isPaused);
+      }
+    }).catch((error) => {
+      console.error("[content-script] Failed to toggle pause:", error);
+    });
+  }
+
   /**
    * Detects DOM changes after an interaction and suggests wait conditions.
    * High-confidence suggestions are automatically recorded as wait actions.
@@ -123,12 +252,22 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
     timestamp: number,
     interactionType: string
   ): Promise<void> {
+    const now = Date.now();
+    if (now - lastDetectionStart < DETECTION_COOLDOWN_MS) {
+      console.log(
+        `[content-script] Skipping DOM detection (cooldown ${DETECTION_COOLDOWN_MS}ms)`
+      );
+      return;
+    }
+
     // If a detection is already running, don't start a new one
     // This prevents rapid clicks from cancelling each other's detection
     if (recordingChangeDetector) {
       console.log(`[content-script] DOM detection already in progress, skipping for ${interactionType}`);
       return;
     }
+
+    lastDetectionStart = now;
 
     // Start a new detector
     recordingChangeDetector = new DOMChangeDetector();
@@ -289,8 +428,8 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
 
       // Skip our overlay elements
       if (
-        element.id?.startsWith("demo-yaml-creator") ||
-        element.closest("#demo-yaml-creator-overlay")
+        element.id?.startsWith("sceneforge") ||
+        element.closest("#sceneforge-overlay")
       ) {
         if (debug) debugInfo.push(`  [${i}] SKIP (overlay): ${desc}`);
         continue;
@@ -322,7 +461,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
    * Handles pointerdown events - fires before click and is more reliable.
    */
   function handlePointerDown(event: PointerEvent): void {
-    if (!isRecording) return;
+    if (!isRecording || isPaused) return;
 
     // Prepare interaction in case click doesn't fire
     const { element: target } = getRealElementAtPoint(event.clientX, event.clientY);
@@ -385,7 +524,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
       hadPendingPointerInteraction: hadPending,
     });
 
-    if (!isRecording) {
+    if (!isRecording || isPaused) {
       console.log(`[content-script] Click ignored: not recording`);
       return;
     }
@@ -475,15 +614,15 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
    * Handles change events for input fields.
    */
   function handleChange(event: Event): void {
-    if (!isRecording) return;
+    if (!isRecording || isPaused) return;
 
     const target = event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
     if (!target) return;
 
     // Skip our own overlay elements
     if (
-      target.id?.startsWith("demo-yaml-creator") ||
-      target.closest("#demo-yaml-creator-overlay")
+      target.id?.startsWith("sceneforge") ||
+      target.closest("#sceneforge-overlay")
     ) {
       return;
     }
@@ -491,6 +630,11 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
     // Skip file inputs - they're handled separately by handleFileInputChange
     // and shouldn't be recorded as "type" actions
     if (target instanceof HTMLInputElement && target.type === "file") {
+      return;
+    }
+
+    if (shouldSkipInput(target)) {
+      console.log("[content-script] Skipping sensitive input field");
       return;
     }
 
@@ -521,7 +665,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
    * Debounces to capture the complete scroll action.
    */
   function handleScroll(): void {
-    if (!isRecording) return;
+    if (!isRecording || isPaused) return;
 
     const currentScrollTop = window.scrollY || document.documentElement.scrollTop;
     const currentScrollLeft = window.scrollX || document.documentElement.scrollLeft;
@@ -569,7 +713,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
    * Handles mousedown events for drag detection.
    */
   function handleMouseDown(event: MouseEvent): void {
-    if (!isRecording) return;
+    if (!isRecording || isPaused) return;
 
     // Get the real element at the mousedown point
     const { element: target } = getRealElementAtPoint(event.clientX, event.clientY);
@@ -589,7 +733,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
    * Handles mousemove events for drag detection.
    */
   function handleMouseMove(event: MouseEvent): void {
-    if (!isRecording || !dragStartElement) return;
+    if (!isRecording || isPaused || !dragStartElement) return;
 
     const deltaX = event.clientX - dragStartX;
     const deltaY = event.clientY - dragStartY;
@@ -607,7 +751,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
    * Handles mouseup events for drag detection.
    */
   function handleMouseUp(_event: MouseEvent): void {
-    if (!isRecording || !dragStartElement) {
+    if (!isRecording || isPaused || !dragStartElement) {
       resetDragState();
       return;
     }
@@ -658,7 +802,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
       if (currentUrl !== lastNavigationUrl) {
         lastNavigationUrl = currentUrl;
 
-        if (isRecording) {
+        if (isRecording && !isPaused) {
           const interaction: RecordedInteraction = {
             type: "navigation",
             timestamp: Date.now(),
@@ -688,13 +832,18 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
    * Records the upload as an action AND detects DOM changes after.
    */
   function handleFileInputChange(event: Event): void {
-    if (!isRecording) return;
+    if (!isRecording || isPaused) return;
 
     const target = event.target as HTMLInputElement;
     if (!target || target.type !== "file") return;
 
     // Skip our own overlay elements
-    if (target.closest("#demo-yaml-creator-overlay")) return;
+    if (target.closest("#sceneforge-overlay")) return;
+
+    if (shouldSkipInput(target)) {
+      console.log("[content-script] Skipping sensitive file input");
+      return;
+    }
 
     const files = target.files;
     if (!files || files.length === 0) return;
@@ -732,7 +881,9 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
     if (isRecording) return;
 
     isRecording = true;
+    isPaused = false;
     showRecordingIndicator();
+    setRecordingIndicatorPaused(false);
 
     // Initialize scroll tracking
     lastScrollTop = window.scrollY || document.documentElement.scrollTop;
@@ -747,6 +898,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
     document.addEventListener("mousedown", handleMouseDown, { capture: true });
     document.addEventListener("mousemove", handleMouseMove, { capture: true });
     document.addEventListener("mouseup", handleMouseUp, { capture: true });
+    document.addEventListener("keydown", handlePauseHotkey, { capture: true });
 
     console.log("[content-script] Recording started");
   }
@@ -758,6 +910,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
     if (!isRecording) return;
 
     isRecording = false;
+    isPaused = false;
     hideRecordingIndicator();
 
     // Remove event listeners
@@ -769,6 +922,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
     document.removeEventListener("mousedown", handleMouseDown, { capture: true });
     document.removeEventListener("mousemove", handleMouseMove, { capture: true });
     document.removeEventListener("mouseup", handleMouseUp, { capture: true });
+    document.removeEventListener("keydown", handlePauseHotkey, { capture: true });
 
     // Clear any pending pointer interaction
     pendingPointerInteraction = null;
@@ -1091,13 +1245,11 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
 
         case "navigate": {
           if (action.path) {
-            // Replace {orgSlug} with current path segment if applicable
-            let path = action.path;
-            const match = window.location.pathname.match(/\/app\/([^/]+)/);
-            if (match) {
-              path = path.replace("{orgSlug}", match[1]);
-            }
-            window.location.href = window.location.origin + path;
+            let path = action.path.replace("{baseURL}", window.location.origin);
+            const targetUrl = path.startsWith("http")
+              ? path
+              : `${window.location.origin}${path}`;
+            window.location.href = targetUrl;
             return { success: true };
           }
           return { success: false, error: "No path specified" };
@@ -1172,7 +1324,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
           // Create a prominent overlay with a button the user must click
           // This is required because file pickers can only open from direct user interaction
           const overlay = document.createElement('div');
-          overlay.id = 'demo-yaml-upload-overlay';
+          overlay.id = 'sceneforge-upload-overlay';
           overlay.style.cssText = `
             position: fixed;
             top: 0;
@@ -1378,12 +1530,42 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
     (message: ExtensionMessage, _sender, sendResponse) => {
       switch (message.type) {
         case "START_RECORDING":
+          if (message.privacyConfig) {
+            updatePrivacyConfig(message.privacyConfig);
+          }
+          if (message.selectorConfig) {
+            updateSelectorConfig(message.selectorConfig);
+          }
           startRecording();
+          if (typeof message.isPaused === "boolean") {
+            setPausedState(message.isPaused);
+          }
           sendResponse({ success: true });
           break;
 
         case "STOP_RECORDING":
           stopRecording();
+          sendResponse({ success: true });
+          break;
+
+        case "SET_RECORDING_PAUSED":
+          if (typeof message.isPaused === "boolean") {
+            setPausedState(message.isPaused);
+          }
+          sendResponse({ success: true });
+          break;
+
+        case "UPDATE_PRIVACY_CONFIG":
+          if (message.privacyConfig) {
+            updatePrivacyConfig(message.privacyConfig);
+          }
+          sendResponse({ success: true });
+          break;
+
+        case "UPDATE_SELECTOR_CONFIG":
+          if (message.selectorConfig) {
+            updateSelectorConfig(message.selectorConfig);
+          }
           sendResponse({ success: true });
           break;
 
@@ -1455,6 +1637,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
   );
 
   // Initialize
+  updateSelectorConfig(selectorConfig);
   watchNavigation();
-  console.log("[content-script] Demo YAML Creator content script loaded");
+  console.log("[content-script] SceneForge content script loaded");
 }

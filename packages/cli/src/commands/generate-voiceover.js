@@ -4,7 +4,7 @@ import { config as loadEnv } from "dotenv";
 import {
   createVoiceSynthesizer,
   generateTimingManifest,
-} from "@demo-tools/generation";
+} from "@jhandel/sceneforge-generation";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import {
   getOutputPaths,
@@ -18,7 +18,7 @@ function printHelp() {
 Generate voiceover audio from demo script JSON files using ElevenLabs
 
 Usage:
-  demo-yaml voiceover [options]
+  sceneforge voiceover [options]
 
 Options:
   --demo <name>         Generate voiceover for a specific demo (e.g., create-quote)
@@ -39,12 +39,12 @@ Environment Variables:
   ELEVENLABS_VOICE_ID   Default voice ID for narration
 
 Examples:
-  demo-yaml voiceover --list-voices
-  demo-yaml voiceover --demo create-quote
-  demo-yaml voiceover --script output/scripts/create-quote.json
-  demo-yaml voiceover --all
-  demo-yaml voiceover --generate-sounds
-  demo-yaml voiceover --generate-music --music-style calm
+  sceneforge voiceover --list-voices
+  sceneforge voiceover --demo create-quote
+  sceneforge voiceover --script output/scripts/create-quote.json
+  sceneforge voiceover --all
+  sceneforge voiceover --generate-sounds
+  sceneforge voiceover --generate-music --music-style calm
 `);
 }
 

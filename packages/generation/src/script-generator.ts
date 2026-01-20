@@ -34,6 +34,13 @@ export interface ScriptOutput {
   totalDurationMs: number;
   segments: ScriptSegment[];
   stepBoundaries: StepBoundary[];
+  videoMetadata?: {
+    videoPath: string;
+    durationMs: number;
+    alignmentOffsetMs: number;
+    recordingStartTimeMs?: number;
+    alignedAt?: string;
+  };
 }
 
 /**

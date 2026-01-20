@@ -75,7 +75,7 @@ export function ActionEditor({ actions, stepIndex, onChange, onSplitAt }: Action
         newAction.duration = 1000;
         break;
       case "navigate":
-        newAction.path = "/app/{orgSlug}/";
+        newAction.path = "/";
         break;
       case "upload":
         // Upload doesn't require a target selector (CLI finds first file input automatically)
@@ -414,7 +414,7 @@ function SortableAction({
                 type="text"
                 value={action.path || ""}
                 onChange={(e) => onUpdate({ path: e.target.value })}
-                placeholder="/app/{orgSlug}/quotes"
+                placeholder="/app/quotes"
                 className="w-full px-2 py-1 text-xs font-mono border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
             </div>

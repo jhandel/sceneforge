@@ -1,5 +1,6 @@
-name: "new-demo"
-title: "New Demo"
+version: 1
+name: "create-dxf-quote"
+title: "Create a DXF Quote with NanoQuote"
 steps:
   - id: "StartNewQuote"
     script: "Lets create a quote togeather! First we start by clicking \"New

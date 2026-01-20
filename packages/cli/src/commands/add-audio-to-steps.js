@@ -1,15 +1,16 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import { checkFFmpeg, getMediaDuration, execAsync } from "../utils/media.js";
+import { checkFFmpeg, getMediaDuration, runFFmpeg } from "../utils/media.js";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import { getOutputPaths, resolveRoot, readJson } from "../utils/paths.js";
+import { sanitizeFileSegment } from "../utils/sanitize.js";
 
 function printHelp() {
   console.log(`
 Add audio to individual video step clips
 
 Usage:
-  demo-yaml add-audio [options]
+  sceneforge add-audio [options]
 
 Options:
   --demo <name>         Process a specific demo by name
@@ -23,8 +24,8 @@ Output:
   Creates step_XX_<stepId>_with_audio.mp4 files in the videos/<demo>/ folder
 
 Examples:
-  demo-yaml add-audio --demo create-quote
-  demo-yaml add-audio --all
+  sceneforge add-audio --demo create-quote
+  sceneforge add-audio --all
 `);
 }
 
@@ -35,13 +36,30 @@ async function addAudioToStep(videoPath, audioPath, outputPath, padding, nextVid
 
   if (targetDuration <= videoDuration) {
     const padDuration = Math.max(0, videoDuration - audioDuration);
-    await execAsync(
-      `ffmpeg -y -i "${videoPath}" -i "${audioPath}" ` +
-        `-filter_complex "[1:a]apad=pad_dur=${padDuration}[a]" ` +
-        `-map 0:v -map "[a]" -t ${videoDuration} ` +
-        `-c:v libx264 -preset fast -c:a aac -b:a 192k "${outputPath}"`,
-      { maxBuffer: 50 * 1024 * 1024 }
-    );
+    await runFFmpeg([
+      "-y",
+      "-i",
+      videoPath,
+      "-i",
+      audioPath,
+      "-filter_complex",
+      `[1:a]apad=pad_dur=${padDuration}[a]`,
+      "-map",
+      "0:v",
+      "-map",
+      "[a]",
+      "-t",
+      String(videoDuration),
+      "-c:v",
+      "libx264",
+      "-preset",
+      "fast",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "192k",
+      outputPath,
+    ]);
     return;
   }
 
@@ -55,25 +73,59 @@ async function addAudioToStep(videoPath, audioPath, outputPath, padding, nextVid
       `trim=duration=${extensionNeeded}[next_still];` +
       `[0:v][next_still]concat=n=2:v=1:a=0[outv]`;
 
-    await execAsync(
-      `ffmpeg -y -i "${videoPath}" -i "${nextVideoPath}" -i "${audioPath}" ` +
-        `-filter_complex "${filterGraph}" ` +
-        `-map "[outv]" -map 2:a ` +
-        `-c:v libx264 -preset fast -c:a aac -b:a 192k ` +
-        `-t ${targetDuration} "${outputPath}"`,
-      { maxBuffer: 50 * 1024 * 1024 }
-    );
+    await runFFmpeg([
+      "-y",
+      "-i",
+      videoPath,
+      "-i",
+      nextVideoPath,
+      "-i",
+      audioPath,
+      "-filter_complex",
+      filterGraph,
+      "-map",
+      "[outv]",
+      "-map",
+      "2:a",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "fast",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "192k",
+      "-t",
+      String(targetDuration),
+      outputPath,
+    ]);
     return;
   }
 
-  await execAsync(
-    `ffmpeg -y -i "${videoPath}" -i "${audioPath}" ` +
-      `-filter_complex "[0:v]tpad=stop_mode=clone:stop_duration=${extensionNeeded}[v]" ` +
-      `-map "[v]" -map 1:a ` +
-      `-c:v libx264 -preset fast -c:a aac -b:a 192k ` +
-      `-t ${targetDuration} "${outputPath}"`,
-    { maxBuffer: 50 * 1024 * 1024 }
-  );
+  await runFFmpeg([
+    "-y",
+    "-i",
+    videoPath,
+    "-i",
+    audioPath,
+    "-filter_complex",
+    `[0:v]tpad=stop_mode=clone:stop_duration=${extensionNeeded}[v]`,
+    "-map",
+    "[v]",
+    "-map",
+    "1:a",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "fast",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "192k",
+    "-t",
+    String(targetDuration),
+    outputPath,
+  ]);
 }
 
 async function processDemo(demoName, paths, padding) {
@@ -86,7 +138,7 @@ async function processDemo(demoName, paths, padding) {
     stepsManifest = await readJson(stepsManifestPath);
   } catch {
     console.error(`[audio] ✗ Steps manifest not found: ${stepsManifestPath}`);
-    console.error("[audio]   Run demo-yaml split first");
+    console.error("[audio]   Run sceneforge split first");
     return;
   }
 
@@ -97,7 +149,7 @@ async function processDemo(demoName, paths, padding) {
     audioManifest = await readJson(audioManifestPath);
   } catch {
     console.error(`[audio] ✗ Audio manifest not found: ${audioManifestPath}`);
-    console.error("[audio]   Run demo-yaml voiceover first");
+    console.error("[audio]   Run sceneforge voiceover first");
     return;
   }
 
@@ -126,10 +178,13 @@ async function processDemo(demoName, paths, padding) {
       continue;
     }
 
+    const safeStepId = step.safeStepId
+      ? sanitizeFileSegment(step.safeStepId, `step-${step.stepIndex + 1}`)
+      : sanitizeFileSegment(step.stepId, `step-${step.stepIndex + 1}`);
     const outputPath = path.join(
       paths.videosDir,
       demoName,
-      `step_${paddedIndex}_${step.stepId}_with_audio.mp4`
+      `step_${paddedIndex}_${safeStepId}_with_audio.mp4`
     );
 
     const videoDuration = await getMediaDuration(step.videoFile);
@@ -172,12 +227,16 @@ async function processDemo(demoName, paths, padding) {
     ...stepsManifest,
     stepsWithAudio: stepsManifest.steps.map((step) => {
       const paddedIndex = String(step.stepIndex + 1).padStart(2, "0");
+      const safeStepId = step.safeStepId
+        ? sanitizeFileSegment(step.safeStepId, `step-${step.stepIndex + 1}`)
+        : sanitizeFileSegment(step.stepId, `step-${step.stepIndex + 1}`);
       return {
         ...step,
+        safeStepId,
         videoFileWithAudio: path.join(
           paths.videosDir,
           demoName,
-          `step_${paddedIndex}_${step.stepId}_with_audio.mp4`
+          `step_${paddedIndex}_${safeStepId}_with_audio.mp4`
         ),
       };
     }),
@@ -212,8 +271,8 @@ async function processAll(paths, padding) {
     if (demosToProcess.length === 0) {
       console.log("[audio] No demos ready for audio addition");
       console.log("[audio] Make sure you've run:");
-      console.log("[audio]   1. demo-yaml split");
-      console.log("[audio]   2. demo-yaml voiceover");
+      console.log("[audio]   1. sceneforge split");
+      console.log("[audio]   2. sceneforge voiceover");
       return;
     }
 

@@ -10,89 +10,34 @@ import type {
   DemoAction,
   StepTarget,
   WaitCondition,
-  ActionType,
 } from "./types";
+import {
+  DEMO_SCHEMA_VERSION,
+  formatValidationError,
+  parseDemoDefinition,
+  safeParseDemoDefinition,
+} from "./schema";
 
 /**
  * Parses a YAML string into a DemoDefinition.
  */
-export function parseFromYAML(yamlString: string): DemoDefinition {
-  const parsed = parse(yamlString) as Record<string, unknown>;
+export function parseFromYAML(
+  yamlString: string,
+  options?: { resolveSecrets?: (key: string) => string | undefined }
+): DemoDefinition {
+  const parsed = parse(yamlString);
 
   if (!parsed || typeof parsed !== "object") {
     throw new Error("Invalid YAML: expected an object");
   }
-
-  return {
-    name: String(parsed.name || "untitled"),
-    title: String(parsed.title || "Untitled Demo"),
-    description: parsed.description ? String(parsed.description) : undefined,
-    steps: Array.isArray(parsed.steps) ? parsed.steps.map(parseStep) : [],
-  };
-}
-
-function parseStep(step: unknown): DemoStep {
-  if (!step || typeof step !== "object") {
-    return createEmptyStep();
+  const resolved = options?.resolveSecrets
+    ? resolveSecrets(parsed, options.resolveSecrets)
+    : parsed;
+  try {
+    return parseDemoDefinition(resolved);
+  } catch (error) {
+    throw new Error(formatValidationError(error));
   }
-
-  const s = step as Record<string, unknown>;
-  return {
-    id: String(s.id || `step-${Date.now()}`),
-    script: String(s.script || ""),
-    actions: Array.isArray(s.actions) ? s.actions.map(parseAction) : [],
-  };
-}
-
-function parseAction(action: unknown): DemoAction {
-  if (!action || typeof action !== "object") {
-    return { action: "wait", duration: 1000 };
-  }
-
-  const a = action as Record<string, unknown>;
-  const result: DemoAction = {
-    action: (a.action as ActionType) || "wait",
-  };
-
-  // Parse target
-  if (a.target && typeof a.target === "object") {
-    const t = a.target as Record<string, unknown>;
-    result.target = {
-      type: (t.type as StepTarget["type"]) || "selector",
-      selector: t.selector ? String(t.selector) : undefined,
-      text: t.text ? String(t.text) : undefined,
-      name: t.name ? String(t.name) : undefined,
-    };
-  }
-
-  // Parse scalar fields
-  if (a.path !== undefined) result.path = String(a.path);
-  if (a.text !== undefined) result.text = String(a.text);
-  if (a.file !== undefined) result.file = String(a.file);
-  if (a.duration !== undefined) result.duration = Number(a.duration);
-  if (a.highlight !== undefined) result.highlight = Boolean(a.highlight);
-
-  // Parse waitFor
-  if (a.waitFor && typeof a.waitFor === "object") {
-    const w = a.waitFor as Record<string, unknown>;
-    result.waitFor = {
-      type: (w.type as WaitCondition["type"]) || "text",
-      value: w.value ? String(w.value) : undefined,
-      timeout: w.timeout ? Number(w.timeout) : 15000,
-    };
-  }
-
-  // Parse drag
-  if (a.drag && typeof a.drag === "object") {
-    const d = a.drag as Record<string, unknown>;
-    result.drag = {
-      deltaX: Number(d.deltaX) || 0,
-      deltaY: Number(d.deltaY) || 0,
-      steps: d.steps ? Number(d.steps) : undefined,
-    };
-  }
-
-  return result;
 }
 
 /**
@@ -100,6 +45,7 @@ function parseAction(action: unknown): DemoAction {
  */
 export function serializeToYAML(demo: DemoDefinition): string {
   const cleanDemo = {
+    version: demo.version ?? DEMO_SCHEMA_VERSION,
     name: demo.name,
     title: demo.title,
     ...(demo.description && { description: demo.description }),
@@ -206,26 +152,9 @@ function serializeWaitCondition(waitFor: WaitCondition): object {
  * Validates a demo definition, throwing on errors.
  */
 export function validateDemoDefinition(definition: DemoDefinition): void {
-  if (!definition.name) {
-    throw new Error("Demo definition missing 'name' field");
-  }
-  if (!definition.title) {
-    throw new Error("Demo definition missing 'title' field");
-  }
-  if (!definition.steps || !Array.isArray(definition.steps)) {
-    throw new Error("Demo definition missing 'steps' array");
-  }
-
-  for (const step of definition.steps) {
-    if (!step.id) {
-      throw new Error("Step missing 'id' field");
-    }
-    if (step.script === undefined || step.script === null) {
-      throw new Error(`Step '${step.id}' missing 'script' field`);
-    }
-    if (!step.actions || !Array.isArray(step.actions)) {
-      throw new Error(`Step '${step.id}' missing 'actions' array`);
-    }
+  const result = safeParseDemoDefinition(definition);
+  if (!result.success) {
+    throw new Error(formatValidationError(result.error));
   }
 }
 
@@ -234,6 +163,7 @@ export function validateDemoDefinition(definition: DemoDefinition): void {
  */
 export function createEmptyDemo(): DemoDefinition {
   return {
+    version: DEMO_SCHEMA_VERSION,
     name: "new-demo",
     title: "New Demo",
     description: "",
@@ -251,4 +181,42 @@ export function createEmptyStep(id?: string): DemoStep {
     script: "",
     actions: [],
   };
+}
+
+const SECRET_PATTERN = /\$\{(ENV|SECRET):([A-Za-z0-9_]+)\}/g;
+
+function resolveSecrets(
+  value: unknown,
+  resolver: (key: string) => string | undefined,
+  path = "root"
+): unknown {
+  if (typeof value === "string") {
+    if (!SECRET_PATTERN.test(value)) {
+      return value;
+    }
+    SECRET_PATTERN.lastIndex = 0;
+    return value.replace(SECRET_PATTERN, (_match, _type, key: string) => {
+      const resolved = resolver(key);
+      if (resolved === undefined) {
+        throw new Error(`Missing secret for ${key} at ${path}`);
+      }
+      return resolved;
+    });
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry, index) =>
+      resolveSecrets(entry, resolver, `${path}[${index}]`)
+    );
+  }
+
+  if (value && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      result[key] = resolveSecrets(entry, resolver, `${path}.${key}`);
+    }
+    return result;
+  }
+
+  return value;
 }

@@ -42,9 +42,19 @@ export async function resolveEnvFile(rootDir, explicitEnvFile) {
     return rootEnvFile;
   }
 
-  const demoEnvFile = path.join(rootDir, "demo-yaml-creator", ".env");
-  if (await pathExists(demoEnvFile)) {
-    return demoEnvFile;
+  const localEnvFile = path.join(rootDir, ".local", ".env");
+  if (await pathExists(localEnvFile)) {
+    return localEnvFile;
+  }
+
+  const sceneForgeEnvFile = path.join(rootDir, "sceneforge", ".env");
+  if (await pathExists(sceneForgeEnvFile)) {
+    return sceneForgeEnvFile;
+  }
+
+  const legacyEnvFile = path.join(rootDir, "demo-yaml-creator", ".env");
+  if (await pathExists(legacyEnvFile)) {
+    return legacyEnvFile;
   }
 
   const e2eEnvFile = path.join(rootDir, "e2e", ".env");

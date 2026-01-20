@@ -5,12 +5,12 @@
 
 // Use object to avoid redeclaration errors on re-injection
 const OverlayIds = {
-  OVERLAY: "demo-yaml-creator-overlay",
-  TOOLTIP: "demo-yaml-creator-tooltip",
-  HIGHLIGHT: "demo-yaml-creator-highlight",
-  RECORDING: "demo-yaml-creator-recording",
-  PICKER: "demo-yaml-creator-picker-indicator",
-  DETECTING: "demo-yaml-creator-detecting",
+  OVERLAY: "sceneforge-overlay",
+  TOOLTIP: "sceneforge-tooltip",
+  HIGHLIGHT: "sceneforge-highlight",
+  RECORDING: "sceneforge-recording",
+  PICKER: "sceneforge-picker-indicator",
+  DETECTING: "sceneforge-detecting",
 } as const;
 
 // State stored on window to survive re-injection
@@ -294,9 +294,9 @@ export function showRecordingIndicator(): void {
     indicator.appendChild(text);
 
     // Add animation style if not already present
-    if (!document.getElementById("demo-yaml-creator-styles")) {
+    if (!document.getElementById("sceneforge-styles")) {
       const style = document.createElement("style");
-      style.id = "demo-yaml-creator-styles";
+      style.id = "sceneforge-styles";
       style.textContent = `
         @keyframes demo-pulse {
           0%, 100% { opacity: 1; }
@@ -317,6 +317,38 @@ export function showRecordingIndicator(): void {
 }
 
 /**
+ * Updates the recording indicator to show paused or active state.
+ */
+export function setRecordingIndicatorPaused(isPaused: boolean): void {
+  const indicator = document.getElementById(OverlayIds.RECORDING) as HTMLDivElement | null;
+  if (!indicator) return;
+
+  const spans = indicator.querySelectorAll("span");
+  const dot = spans[0] as HTMLSpanElement | undefined;
+  const label = spans[1] as HTMLSpanElement | undefined;
+
+  if (isPaused) {
+    indicator.style.background = "#f59e0b";
+    if (dot) {
+      dot.style.animation = "none";
+      dot.style.opacity = "0.8";
+    }
+    if (label) {
+      label.textContent = "Paused";
+    }
+  } else {
+    indicator.style.background = "#ef4444";
+    if (dot) {
+      dot.style.animation = "demo-pulse 1.5s ease-in-out infinite";
+      dot.style.opacity = "1";
+    }
+    if (label) {
+      label.textContent = "Recording";
+    }
+  }
+}
+
+/**
  * Hides the recording indicator.
  */
 export function hideRecordingIndicator(): void {
@@ -329,7 +361,7 @@ export function hideRecordingIndicator(): void {
  */
 export function flashClick(x: number, y: number): void {
   const flash = document.createElement("div");
-  flash.className = "demo-yaml-creator-flash";
+  flash.className = "sceneforge-flash";
   flash.style.cssText = `
     position: fixed;
     left: ${x - 15}px;
@@ -526,7 +558,7 @@ export function showDetectingIndicator(interactionType?: string): void {
     indicator.appendChild(skipBtn);
 
     // Add spin animation if not already present
-    const existingStyle = document.getElementById("demo-yaml-creator-styles");
+    const existingStyle = document.getElementById("sceneforge-styles");
     if (existingStyle && !existingStyle.textContent?.includes("demo-spin")) {
       existingStyle.textContent += `
         @keyframes demo-spin {

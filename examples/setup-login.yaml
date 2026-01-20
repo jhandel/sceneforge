@@ -1,0 +1,55 @@
+version: 1
+name: "setup-login"
+title: "Setup Login"
+description: "Example setup flow that signs in and captures storage state."
+steps:
+  - id: "Login"
+    script: "Sign in to prepare a reusable session for later demos."
+    actions:
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"Sign in\") >> nth=0"
+        highlight: true
+      - action: "wait"
+        duration: 10000
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "input[placeholder=\"Your email address\"]"
+        highlight: true
+      - action: "type"
+        target:
+          type: "selector"
+          selector: "input[placeholder=\"Your email address\"]"
+        text: "${SECRET:EMAIL}"
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"Continue\")"
+        highlight: true
+      - action: "wait"
+        waitFor:
+          type: "text"
+          value: "Sign in"
+          timeout: 15000
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "input[placeholder=\"Your password\"]"
+        highlight: true
+      - action: "type"
+        target:
+          type: "selector"
+          selector: "input[placeholder=\"Your password\"]"
+        text: "${SECRET:PASSWORD}"
+      - action: "click"
+        target:
+          type: "selector"
+          selector: "button:has-text(\"Sign in\")"
+        highlight: true
+      - action: "wait"
+        waitFor:
+          type: "text"
+          value: "Manage your laser cutting quotes"
+          timeout: 15000

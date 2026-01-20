@@ -1,0 +1,32 @@
+{
+  "name": "@jhandel/sceneforge",
+  "version": "0.1.0",
+  "description": "SceneForge runner and generation utilities for YAML-driven demos",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --sourcemap --clean --out-dir dist"
+  },
+  "dependencies": {
+    "elevenlabs": "^1.59.0",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.2"
+  },
+  "peerDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

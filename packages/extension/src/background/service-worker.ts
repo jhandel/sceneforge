@@ -1,5 +1,5 @@
 /**
- * Service worker for Demo YAML Creator extension.
+ * Service worker for SceneForge extension.
  * Manages state and routes messages between content script and side panel.
  */
 
@@ -9,28 +9,98 @@ import type {
   PickerResult,
 } from "../shared/types";
 import type { ExtensionMessage, TestSelectorResponse } from "../shared/messages";
-import { createEmptyDemo, createEmptyStep, createClickAction } from "../shared/yaml-serializer";
+import { DEFAULT_PRIVACY_CONFIG, normalizePrivacyConfig } from "../shared/privacy";
+import { DEFAULT_SELECTOR_CONFIG, normalizeSelectorConfig } from "../shared/selector-config";
+import {
+  createEmptyDemo,
+  createEmptyStep,
+  createClickAction,
+  safeParseDemoDefinition,
+  formatValidationError,
+} from "../shared/yaml-serializer";
+
+const STORAGE_VERSION = 1;
 
 // Global state
 let state: RecordingState = {
   isRecording: false,
   isPicking: false,
+  isPaused: false,
+  privacyConfig: { ...DEFAULT_PRIVACY_CONFIG },
+  selectorConfig: { ...DEFAULT_SELECTOR_CONFIG },
   currentDemo: null,
   currentStepIndex: -1,
 };
 
 // Storage key
-const STORAGE_KEY = "demoYamlCreator_draft";
+const STORAGE_KEY = "demoYamlCreator_state";
 
 // Initialize state from storage
 async function initializeState(): Promise<void> {
   try {
     const result = await chrome.storage.local.get(STORAGE_KEY);
-    if (result[STORAGE_KEY]) {
-      state.currentDemo = result[STORAGE_KEY];
-      state.currentStepIndex = state.currentDemo?.steps.length
-        ? state.currentDemo.steps.length - 1
-        : -1;
+    const stored = result[STORAGE_KEY];
+    let shouldPersist = false;
+    if (stored && typeof stored === "object" && stored !== null) {
+      if ("storageVersion" in stored) {
+        const storedVersion = Number((stored as { storageVersion?: number }).storageVersion);
+        if (storedVersion !== STORAGE_VERSION) {
+          console.warn(
+            "[service-worker] Stored state version mismatch, resetting",
+            storedVersion
+          );
+          await chrome.storage.local.remove(STORAGE_KEY);
+          shouldPersist = true;
+        } else {
+          const storedState = stored as {
+            demo?: unknown;
+            privacyConfig?: unknown;
+            selectorConfig?: unknown;
+          };
+          if (storedState.demo) {
+            const parsed = safeParseDemoDefinition(storedState.demo);
+            if (parsed.success) {
+              const demo = parsed.data;
+              state.currentDemo = demo;
+              state.currentStepIndex = demo.steps.length
+                ? demo.steps.length - 1
+                : -1;
+            } else {
+              console.warn(
+                "[service-worker] Invalid stored demo draft, resetting:",
+                formatValidationError(parsed.error)
+              );
+              state.currentDemo = null;
+              state.currentStepIndex = -1;
+              shouldPersist = true;
+            }
+          }
+          state.privacyConfig = normalizePrivacyConfig(storedState.privacyConfig);
+          state.selectorConfig = normalizeSelectorConfig(storedState.selectorConfig);
+        }
+      } else {
+        // Legacy stored demo draft
+        const parsed = safeParseDemoDefinition(stored);
+        if (parsed.success) {
+          const demo = parsed.data;
+          state.currentDemo = demo;
+          state.currentStepIndex = demo.steps.length
+            ? demo.steps.length - 1
+            : -1;
+          shouldPersist = true;
+        } else {
+          console.warn(
+            "[service-worker] Invalid stored demo draft, resetting:",
+            formatValidationError(parsed.error)
+          );
+          await chrome.storage.local.remove(STORAGE_KEY);
+          shouldPersist = true;
+        }
+      }
+    }
+    state.selectorConfig = normalizeSelectorConfig(state.selectorConfig);
+    if (shouldPersist) {
+      await saveState();
     }
   } catch (error) {
     console.error("[service-worker] Failed to load state:", error);
@@ -40,9 +110,14 @@ async function initializeState(): Promise<void> {
 // Save state to storage
 async function saveState(): Promise<void> {
   try {
-    if (state.currentDemo) {
-      await chrome.storage.local.set({ [STORAGE_KEY]: state.currentDemo });
-    }
+    await chrome.storage.local.set({
+      [STORAGE_KEY]: {
+        storageVersion: STORAGE_VERSION,
+        demo: state.currentDemo,
+        privacyConfig: state.privacyConfig,
+        selectorConfig: state.selectorConfig,
+      },
+    });
   } catch (error) {
     console.error("[service-worker] Failed to save state:", error);
   }
@@ -111,7 +186,7 @@ function handleInteractionRecorded(interaction: RecordedInteraction): void {
     isRecording: state.isRecording,
   });
 
-  if (!state.isRecording) {
+  if (!state.isRecording || state.isPaused) {
     console.log(`[service-worker] Interaction ignored: not recording`);
     return;
   }
@@ -155,9 +230,7 @@ function handleInteractionRecorded(interaction: RecordedInteraction): void {
         // Extract path from URL
         try {
           const url = new URL(interaction.url);
-          let path = url.pathname + url.search;
-          // Replace org slug with template variable
-          path = path.replace(/\/app\/[^/]+/, "/app/{orgSlug}");
+          const path = url.pathname + url.search;
           currentStep.actions.push({
             action: "navigate",
             path,
@@ -235,17 +308,42 @@ chrome.runtime.onMessage.addListener(
         switch (message.type) {
           case "START_RECORDING":
             state.isRecording = true;
+            state.isPaused = Boolean(message.isPaused);
             if (!state.currentDemo) {
               state.currentDemo = createEmptyDemo();
             }
-            await sendToContentScript({ type: "START_RECORDING" });
+            if (message.privacyConfig) {
+              state.privacyConfig = normalizePrivacyConfig(message.privacyConfig);
+            }
+            if (message.selectorConfig) {
+              state.selectorConfig = normalizeSelectorConfig(message.selectorConfig);
+            }
+            const startResult = await sendToContentScript({
+              type: "START_RECORDING",
+              privacyConfig: state.privacyConfig,
+              selectorConfig: state.selectorConfig,
+              isPaused: state.isPaused,
+            });
+            if (startResult === null) {
+              state.lastError = {
+                message: "Unable to start recording: content script not available",
+                time: new Date().toISOString(),
+              };
+            }
             broadcastState();
             sendResponse({ success: true });
             break;
 
           case "STOP_RECORDING":
             state.isRecording = false;
-            await sendToContentScript({ type: "STOP_RECORDING" });
+            state.isPaused = false;
+            const stopResult = await sendToContentScript({ type: "STOP_RECORDING" });
+            if (stopResult === null) {
+              state.lastError = {
+                message: "Unable to stop recording: content script not available",
+                time: new Date().toISOString(),
+              };
+            }
             broadcastState();
             sendResponse({ success: true });
             break;
@@ -271,7 +369,7 @@ chrome.runtime.onMessage.addListener(
 
           case "FILE_UPLOAD_RECORDED":
             // Record file upload as an upload action
-            if (state.isRecording && state.currentDemo && state.currentStepIndex >= 0) {
+            if (state.isRecording && !state.isPaused && state.currentDemo && state.currentStepIndex >= 0) {
               const currentStep = state.currentDemo.steps[state.currentStepIndex];
               if (currentStep) {
                 console.log(`[service-worker] Recording file upload: ${message.fileName}`);
@@ -305,7 +403,7 @@ chrome.runtime.onMessage.addListener(
 
           case "AUTO_WAIT_DETECTED":
             // Automatically add a wait action when high-confidence DOM changes detected
-            if (state.isRecording && state.currentDemo && state.currentStepIndex >= 0) {
+            if (state.isRecording && !state.isPaused && state.currentDemo && state.currentStepIndex >= 0) {
               const currentStep = state.currentDemo.steps[state.currentStepIndex];
               if (currentStep) {
                 console.log(`[service-worker] Auto-adding wait action: ${message.waitCondition.type}="${message.waitCondition.value}"`);
@@ -328,15 +426,74 @@ chrome.runtime.onMessage.addListener(
             sendResponse(state);
             break;
 
-          case "UPDATE_DEMO":
-            state.currentDemo = message.demo;
-            // Keep currentStepIndex valid but don't change it unless necessary
-            if (state.currentStepIndex >= message.demo.steps.length) {
-              state.currentStepIndex = Math.max(0, message.demo.steps.length - 1);
+          case "TOGGLE_RECORDING_PAUSE":
+            if (!state.isRecording) {
+              sendResponse({ success: false, error: "Not recording" });
+              break;
             }
+            state.isPaused = !state.isPaused;
+            await sendToContentScript({
+              type: "SET_RECORDING_PAUSED",
+              isPaused: state.isPaused,
+            });
+            broadcastState();
+            sendResponse({ success: true, isPaused: state.isPaused });
+            break;
+
+          case "UPDATE_PRIVACY_CONFIG":
+            state.privacyConfig = normalizePrivacyConfig(message.privacyConfig);
             await saveState();
+            await sendToContentScript({
+              type: "UPDATE_PRIVACY_CONFIG",
+              privacyConfig: state.privacyConfig,
+            });
             broadcastState();
             sendResponse({ success: true });
+            break;
+
+          case "UPDATE_SELECTOR_CONFIG":
+            state.selectorConfig = normalizeSelectorConfig(message.selectorConfig);
+            await saveState();
+            await sendToContentScript({
+              type: "UPDATE_SELECTOR_CONFIG",
+              selectorConfig: state.selectorConfig,
+            });
+            broadcastState();
+            sendResponse({ success: true });
+            break;
+
+          case "CLEAR_ERROR":
+            state.lastError = undefined;
+            broadcastState();
+            sendResponse({ success: true });
+            break;
+
+          case "UPDATE_DEMO":
+            {
+              const parsed = safeParseDemoDefinition(message.demo);
+              if (!parsed.success) {
+                console.warn(
+                  "[service-worker] Rejected invalid demo update:",
+                  formatValidationError(parsed.error)
+                );
+                state.lastError = {
+                  message: "Invalid demo update",
+                  time: new Date().toISOString(),
+                };
+                broadcastState();
+                sendResponse({ success: false, error: "Invalid demo update" });
+                break;
+              }
+              const demo = parsed.data;
+              state.currentDemo = demo;
+              // Keep currentStepIndex valid but don't change it unless necessary
+              if (state.currentStepIndex >= demo.steps.length) {
+                state.currentStepIndex = Math.max(0, demo.steps.length - 1);
+              }
+              await saveState();
+              broadcastState();
+              sendResponse({ success: true });
+            }
             break;
 
           case "SET_CURRENT_STEP":
@@ -392,6 +549,11 @@ chrome.runtime.onMessage.addListener(
         }
       } catch (error) {
         console.error("[service-worker] Error handling message:", error);
+        state.lastError = {
+          message: String(error),
+          time: new Date().toISOString(),
+        };
+        broadcastState();
         sendResponse({ error: String(error) });
       }
     })();
@@ -410,14 +572,19 @@ chrome.action.onClicked.addListener(async (tab) => {
 
 // Handle tab navigation - re-inject content script if needed
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status === "complete" && state.isRecording && isInjectableUrl(tab.url)) {
+  if (changeInfo.status === "complete" && state.isRecording && !state.isPaused && isInjectableUrl(tab.url)) {
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
         files: ["content-script.js"],
       });
       // Re-enable recording on the new page
-      chrome.tabs.sendMessage(tabId, { type: "START_RECORDING" }).catch(() => {});
+      chrome.tabs.sendMessage(tabId, {
+        type: "START_RECORDING",
+        privacyConfig: state.privacyConfig,
+        selectorConfig: state.selectorConfig,
+        isPaused: state.isPaused,
+      }).catch(() => {});
     } catch {
       // Silently ignore - page may not allow injection
     }
@@ -427,4 +594,4 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 // Initialize on load
 initializeState();
 
-console.log("[service-worker] Demo YAML Creator service worker initialized");
+console.log("[service-worker] SceneForge service worker initialized");

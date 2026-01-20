@@ -4,30 +4,34 @@ import { chromium } from "@playwright/test";
 import {
   loadDemoDefinition,
   runDemo,
-} from "@demo-tools/playwright";
+} from "@jhandel/sceneforge-playwright";
+import { config as loadEnv } from "dotenv";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import {
   ensureDir,
   getOutputPaths,
+  resolveEnvFile,
   resolveRoot,
   toAbsolute,
 } from "../utils/paths.js";
+import { getMediaDuration } from "../utils/media.js";
 
 function printHelp() {
   console.log(`
 Run a YAML demo definition with Playwright and generate scripts
 
 Usage:
-  demo-yaml record [options]
+  sceneforge record [options]
 
 Options:
   --definition <path>     Path to the YAML demo definition
   --demo <name>           Demo name (resolved in --definitions-dir)
   --definitions-dir <p>   Directory for demo YAML files (default: examples)
   --base-url <url>        Base URL for the demo (required)
-  --org-slug <slug>       Org slug for URL templates (required)
   --start-path <path>     Optional path/URL to open before running actions
   --asset-root <path>     Base directory for relative upload files
+  --env-file <path>       Env file for secrets (defaults to .env if present)
+  --locale <locale>       Locale for requests (default: en-US)
   --root <path>           Project root (defaults to cwd)
   --output-dir <path>     Output directory (defaults to output or e2e/output)
   --storage-state <path>  Playwright storage state JSON
@@ -40,8 +44,8 @@ Options:
   --help, -h              Show this help message
 
 Examples:
-  demo-yaml record --definition demo-definitions/create-quote.yaml --base-url http://localhost:5173 --org-slug acme
-  demo-yaml record --demo create-quote --definitions-dir examples --base-url http://localhost:5173 --org-slug acme
+  sceneforge record --definition demo-definitions/create-quote.yaml --base-url http://localhost:5173
+  sceneforge record --demo create-quote --definitions-dir examples --base-url http://localhost:5173
 `);
 }
 
@@ -70,10 +74,9 @@ function parseViewport(args) {
   return { width: Number(match[1]), height: Number(match[2]) };
 }
 
-function resolveStartUrl(startPath, baseUrl, orgSlug) {
+function resolveStartUrl(startPath, baseUrl) {
   if (!startPath) return null;
   const interpolated = startPath
-    .replace("{orgSlug}", orgSlug)
     .replace("{baseURL}", baseUrl);
 
   if (interpolated.startsWith("http://") || interpolated.startsWith("https://")) {
@@ -85,6 +88,63 @@ function resolveStartUrl(startPath, baseUrl, orgSlug) {
   }
 
   return `${baseUrl}/${interpolated}`;
+}
+
+async function alignScriptToVideo(scriptPath, videoPath, recordingStartTimeMs) {
+  if (!scriptPath || !videoPath) {
+    return;
+  }
+
+  try {
+    const [scriptContent, videoDurationSec] = await Promise.all([
+      fs.readFile(scriptPath, "utf-8"),
+      getMediaDuration(videoPath),
+    ]);
+    const script = JSON.parse(scriptContent);
+    const videoDurationMs = Math.round(videoDurationSec * 1000);
+    const scriptDurationMs = Number(script.totalDurationMs ?? 0);
+    const safeScriptDurationMs = Number.isFinite(scriptDurationMs) ? scriptDurationMs : 0;
+    const alignmentOffsetMs = Math.max(0, safeScriptDurationMs - videoDurationMs);
+
+    const clampTime = (value) => {
+      const adjusted = Number(value ?? 0) - alignmentOffsetMs;
+      return Math.max(0, Math.round(adjusted));
+    };
+
+    const alignedSegments = Array.isArray(script.segments)
+      ? script.segments.map((segment) => ({
+          ...segment,
+          startTimeMs: clampTime(segment.startTimeMs),
+          endTimeMs: clampTime(segment.endTimeMs),
+        }))
+      : script.segments;
+
+    const alignedBoundaries = Array.isArray(script.stepBoundaries)
+      ? script.stepBoundaries.map((boundary) => ({
+          ...boundary,
+          videoStartMs: clampTime(boundary.videoStartMs),
+          videoEndMs: clampTime(boundary.videoEndMs),
+        }))
+      : script.stepBoundaries;
+
+    const updated = {
+      ...script,
+      totalDurationMs: videoDurationMs,
+      segments: alignedSegments,
+      stepBoundaries: alignedBoundaries,
+      videoMetadata: {
+        videoPath,
+        durationMs: videoDurationMs,
+        alignmentOffsetMs,
+        recordingStartTimeMs,
+        alignedAt: new Date().toISOString(),
+      },
+    };
+
+    await fs.writeFile(scriptPath, JSON.stringify(updated, null, 2));
+  } catch (error) {
+    console.warn("[record] Failed to align script timings:", error);
+  }
 }
 
 async function resolveDefinitionPath(rootDir, demo, definitionsDir) {
@@ -128,25 +188,31 @@ export async function runRecordDemoCommand(argv) {
   const root = getFlagValue(args, "--root");
   const outputDirOverride = getFlagValue(args, "--output-dir");
   const baseUrl = getFlagValue(args, "--base-url");
-  const orgSlug = getFlagValue(args, "--org-slug");
   const definitionArg = getFlagValue(args, "--definition");
   const demo = getFlagValue(args, "--demo");
   const definitionsDir = getFlagValue(args, "--definitions-dir") ?? "examples";
   const storageState = getFlagValue(args, "--storage-state");
   const startPath = getFlagValue(args, "--start-path") || getFlagValue(args, "--start-url");
   const assetRoot = getFlagValue(args, "--asset-root");
+  const envFile = getFlagValue(args, "--env-file");
+  const localeFlag = getFlagValue(args, "--locale");
   const headed = hasFlag(args, "--headed");
   const slowMo = getFlagValue(args, "--slowmo");
   const noVideo = hasFlag(args, "--no-video");
 
-  if (!baseUrl || !orgSlug) {
-    console.error("[error] --base-url and --org-slug are required");
+  if (!baseUrl) {
+    console.error("[error] --base-url is required");
     printHelp();
     process.exit(1);
   }
 
   const rootDir = resolveRoot(root);
   const outputPaths = await getOutputPaths(rootDir, outputDirOverride);
+  const resolvedEnvFile = await resolveEnvFile(rootDir, envFile);
+  if (resolvedEnvFile) {
+    loadEnv({ path: resolvedEnvFile });
+  }
+  const locale = localeFlag ?? process.env.DEMO_LOCALE ?? "en-US";
 
   const definitionPath = definitionArg
     ? toAbsolute(rootDir, definitionArg)
@@ -160,7 +226,9 @@ export async function runRecordDemoCommand(argv) {
     process.exit(1);
   }
 
-  const definition = await loadDemoDefinition(definitionPath);
+  const definition = await loadDemoDefinition(definitionPath, {
+    resolveSecrets: (key) => process.env[key],
+  });
 
   await ensureDir(outputPaths.outputDir);
   await ensureDir(outputPaths.videosDir);
@@ -181,12 +249,18 @@ export async function runRecordDemoCommand(argv) {
     viewport,
     recordVideo: noVideo ? undefined : { dir: recordDir, size: viewport },
     storageState: storageState ? toAbsolute(rootDir, storageState) : undefined,
+    locale: locale || undefined,
+    extraHTTPHeaders: locale
+      ? {
+          "Accept-Language": `${locale},en;q=0.9`,
+        }
+      : undefined,
   });
 
   const page = await context.newPage();
   const video = page.video();
   const videoRecordingStartTime = Date.now();
-  const startUrl = resolveStartUrl(startPath, baseUrl, orgSlug);
+  const startUrl = resolveStartUrl(startPath, baseUrl);
 
   if (startUrl) {
     await page.goto(startUrl, { waitUntil: "networkidle" });
@@ -196,7 +270,6 @@ export async function runRecordDemoCommand(argv) {
     {
       page,
       baseURL: baseUrl,
-      orgSlug,
       outputDir: outputPaths.outputDir,
       assetBaseDir: assetRoot ? toAbsolute(rootDir, assetRoot) : undefined,
       videoRecordingStartTime,
@@ -215,6 +288,9 @@ export async function runRecordDemoCommand(argv) {
     const finalVideoPath = path.join(outputPaths.videosDir, `${definition.name}.webm`);
     await moveVideo(recordedPath, finalVideoPath);
     console.log(`[record] Video saved: ${finalVideoPath}`);
+    if (result.scriptPath) {
+      await alignScriptToVideo(result.scriptPath, finalVideoPath, videoRecordingStartTime);
+    }
   }
 
   if (result.success) {

@@ -5,23 +5,27 @@ import { runAddAudioCommand } from "./commands/add-audio-to-steps.js";
 import { runConcatCommand } from "./commands/concat-final-videos.js";
 import { runRecordDemoCommand } from "./commands/record-demo.js";
 import { runPipelineCommand } from "./commands/pipeline.js";
+import { runDoctorCommand } from "./commands/doctor.js";
+import { runSetupCommand } from "./commands/setup.js";
 
 function printHelp() {
   console.log(`
-Demo YAML Creator CLI
+SceneForge CLI
 
 Usage:
-  demo-yaml <command> [options]
+  sceneforge <command> [options]
 
 Commands:
   record       Run a demo definition with Playwright and generate scripts
+  setup        Run a setup definition and save storage state
   pipeline     Run the full pipeline (record → split → voiceover → add-audio → concat)
   split        Split recorded demo videos into per-step clips
   voiceover    Generate voiceover audio with ElevenLabs
   add-audio    Add audio tracks to per-step clips
   concat       Concatenate clips into final demo videos
+  doctor       Run diagnostics for ffmpeg/ffprobe/env
 
-Run "demo-yaml <command> --help" for command-specific options.
+Run "sceneforge <command> --help" for command-specific options.
 `);
 }
 
@@ -39,6 +43,10 @@ switch (normalized) {
   case "run":
   case "generate":
     await runRecordDemoCommand(rest);
+    break;
+  case "setup":
+  case "login":
+    await runSetupCommand(rest);
     break;
   case "pipeline":
   case "run-pipeline":
@@ -60,6 +68,10 @@ switch (normalized) {
   case "concat":
   case "concat-final-videos":
     await runConcatCommand(rest);
+    break;
+  case "doctor":
+  case "diagnostics":
+    await runDoctorCommand(rest);
     break;
   default:
     console.error(`[error] Unknown command: ${command}`);

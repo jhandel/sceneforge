@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Demo YAML Creator",
+  "name": "SceneForge",
   "version": "1.0.0",
-  "description": "Record user interactions and generate demo YAML files for Playwright-based demo runner",
+  "description": "SceneForge extension to record interactions and generate YAML demos for Playwright playback",
   "permissions": [
     "activeTab",
     "sidePanel",
@@ -14,7 +14,7 @@
     "<all_urls>"
   ],
   "action": {
-    "default_title": "Demo YAML Creator"
+    "default_title": "SceneForge"
   },
   "side_panel": {
     "default_path": "sidepanel.html"

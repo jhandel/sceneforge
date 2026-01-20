@@ -1,0 +1,86 @@
+version: 1
+name: "demo-with-media"
+title: "Demo with Intro, Outro, and Background Music"
+description: "Example showing how to configure intro/outro videos and background music"
+
+# Media configuration for final video production
+media:
+  # Intro video prepended to the demo
+  intro:
+    file: "assets/intro.mp4"          # Path relative to YAML or absolute
+    # duration: 5                     # Optional: trim to specific duration
+    fade: true                        # Enable fade transition
+    fadeDuration: 0.5                 # Fade duration in seconds
+
+  # Outro video appended to the demo
+  outro:
+    file: "assets/outro.mp4"
+    fade: true
+    fadeDuration: 1.0
+
+  # Background music configuration
+  backgroundMusic:
+    file: "assets/background-music.mp3"
+    volume: 0.15                      # 0.0 to 1.0 (15% is good for background)
+    loop: true                        # Repeat if shorter than video
+    fadeIn: 1.5                       # Fade in over 1.5 seconds
+    fadeOut: 2.0                      # Fade out over 2 seconds
+    
+    # When to start the music (choose one):
+    # startAt:
+    #   type: "beginning"             # Start from the very beginning
+    # startAt:
+    #   type: "afterIntro"            # Start after the intro ends
+    # startAt:
+    #   type: "step"
+    #   stepId: "ConfigureSources"    # Start at a specific step
+    # startAt:
+    #   type: "time"
+    #   seconds: 5.0                  # Start at a specific time
+
+    startAt:
+      type: "afterIntro"              # Music starts after intro finishes
+    
+    # When to end the music (choose one):
+    # endAt:
+    #   type: "end"                   # Play until the very end
+    # endAt:
+    #   type: "beforeOutro"           # Stop before the outro begins
+    # endAt:
+    #   type: "step"
+    #   stepId: "FinalStep"           # Stop at a specific step
+    # endAt:
+    #   type: "time"
+    #   seconds: 60.0                 # Stop at a specific time
+
+    endAt:
+      type: "beforeOutro"             # Music fades out before outro
+
+steps:
+  - id: "Welcome"
+    script: "Welcome to our product demo! Let me show you how easy it is to get started."
+    actions:
+      - action: "navigate"
+        path: "/"
+      - action: "wait"
+        duration: 1000
+
+  - id: "FeatureDemo"
+    script: "Here's our main feature in action. Watch how quickly you can accomplish this task."
+    actions:
+      - action: "click"
+        target:
+          type: "button"
+          text: "Get Started"
+        highlight: true
+      - action: "wait"
+        waitFor:
+          type: "text"
+          value: "Dashboard"
+          timeout: 10000
+
+  - id: "Conclusion"
+    script: "And that's it! You've just seen how simple and powerful our product is."
+    actions:
+      - action: "wait"
+        duration: 2000

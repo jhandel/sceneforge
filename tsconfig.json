@@ -18,12 +18,14 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./packages/extension/src/*"],
-      "@demo-tools/shared": ["./packages/shared/src"],
-      "@demo-tools/shared/*": ["./packages/shared/src/*"],
-      "@demo-tools/playwright": ["./packages/playwright/src"],
-      "@demo-tools/playwright/*": ["./packages/playwright/src/*"],
-      "@demo-tools/generation": ["./packages/generation/src"],
-      "@demo-tools/generation/*": ["./packages/generation/src/*"]
+      "@jhandel/sceneforge": ["./packages/sceneforge/src"],
+      "@jhandel/sceneforge/*": ["./packages/sceneforge/src/*"],
+      "@jhandel/sceneforge-shared": ["./packages/shared/src"],
+      "@jhandel/sceneforge-shared/*": ["./packages/shared/src/*"],
+      "@jhandel/sceneforge-playwright": ["./packages/playwright/src"],
+      "@jhandel/sceneforge-playwright/*": ["./packages/playwright/src/*"],
+      "@jhandel/sceneforge-generation": ["./packages/generation/src"],
+      "@jhandel/sceneforge-generation/*": ["./packages/generation/src/*"]
     }
   },
   "include": ["packages/*/src/**/*"],

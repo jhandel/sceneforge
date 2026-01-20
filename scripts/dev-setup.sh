@@ -1,5 +1,5 @@
 #!/bin/bash
-# Dev setup script for Demo YAML Creator extension
+# Dev setup script for SceneForge extension
 # Run once to install deps and do initial build
 
 set -e

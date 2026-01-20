@@ -1,7 +1,8 @@
 {
-  "name": "@demo-tools/generation",
+  "name": "@jhandel/sceneforge-generation",
   "version": "0.1.0",
-  "description": "Script and audio generation utilities for demo videos",
+  "private": true,
+  "description": "SceneForge script and audio generation utilities for demo videos",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

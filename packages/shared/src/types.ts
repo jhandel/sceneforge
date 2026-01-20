@@ -8,10 +8,13 @@
  * Complete demo definition matching the YAML schema.
  */
 export interface DemoDefinition {
+  version: number;
   name: string;
   title: string;
   description?: string;
   steps: DemoStep[];
+  /** Media configuration for intro/outro and background music */
+  media?: MediaConfig;
 }
 
 /**
@@ -142,11 +145,34 @@ export interface SelectorCandidate {
 }
 
 /**
+ * Recording privacy configuration for the extension.
+ */
+export interface PrivacyConfig {
+  redactSensitiveInputs: boolean;
+  allowlist: string[];
+  denylist: string[];
+}
+
+/**
+ * Selector strategy configuration for the extension.
+ */
+export interface SelectorConfig {
+  enabledStrategies: string[];
+}
+
+/**
  * Recording state for the extension.
  */
 export interface RecordingState {
   isRecording: boolean;
   isPicking: boolean;
+  isPaused: boolean;
+  privacyConfig: PrivacyConfig;
+  selectorConfig: SelectorConfig;
+  lastError?: {
+    message: string;
+    time: string;
+  };
   currentDemo: DemoDefinition | null;
   currentStepIndex: number;
 }
@@ -170,4 +196,68 @@ export interface TestSelectorResponse {
     tagName: string;
     textContent?: string;
   };
+}
+
+/**
+ * Intro/outro video segment configuration.
+ */
+export interface VideoSegment {
+  /** Path to the video file (relative to YAML or absolute) */
+  file: string;
+  /** Optional duration in seconds (uses full length if omitted) */
+  duration?: number;
+  /** Whether to fade in/out the segment */
+  fade?: boolean;
+  /** Fade duration in seconds (default: 0.5) */
+  fadeDuration?: number;
+}
+
+/**
+ * Background music configuration.
+ */
+export interface BackgroundMusic {
+  /** Path to the audio file (relative to YAML or absolute) */
+  file: string;
+  /** Volume level 0.0-1.0 (default: 0.15 for background) */
+  volume?: number;
+  /** When to start the music */
+  startAt?: MusicStartPoint;
+  /** When to stop the music */
+  endAt?: MusicEndPoint;
+  /** Whether to loop the audio if it's shorter than the video */
+  loop?: boolean;
+  /** Fade in duration in seconds */
+  fadeIn?: number;
+  /** Fade out duration in seconds */
+  fadeOut?: number;
+}
+
+/**
+ * Music start point configuration.
+ */
+export type MusicStartPoint =
+  | { type: "beginning" }
+  | { type: "afterIntro" }
+  | { type: "step"; stepId: string }
+  | { type: "time"; seconds: number };
+
+/**
+ * Music end point configuration.
+ */
+export type MusicEndPoint =
+  | { type: "end" }
+  | { type: "beforeOutro" }
+  | { type: "step"; stepId: string }
+  | { type: "time"; seconds: number };
+
+/**
+ * Media configuration for final video production.
+ */
+export interface MediaConfig {
+  /** Intro video segment to prepend */
+  intro?: VideoSegment;
+  /** Outro video segment to append */
+  outro?: VideoSegment;
+  /** Background music configuration */
+  backgroundMusic?: BackgroundMusic;
 }
