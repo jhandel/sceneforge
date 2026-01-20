@@ -22,7 +22,7 @@ import {
 const STORAGE_VERSION = 1;
 
 // Global state
-let state: RecordingState = {
+const state: RecordingState = {
   isRecording: false,
   isPicking: false,
   isPaused: false,
@@ -306,7 +306,7 @@ chrome.runtime.onMessage.addListener(
     (async () => {
       try {
         switch (message.type) {
-          case "START_RECORDING":
+          case "START_RECORDING": {
             state.isRecording = true;
             state.isPaused = Boolean(message.isPaused);
             if (!state.currentDemo) {
@@ -333,8 +333,9 @@ chrome.runtime.onMessage.addListener(
             broadcastState();
             sendResponse({ success: true });
             break;
+          }
 
-          case "STOP_RECORDING":
+          case "STOP_RECORDING": {
             state.isRecording = false;
             state.isPaused = false;
             const stopResult = await sendToContentScript({ type: "STOP_RECORDING" });
@@ -347,6 +348,7 @@ chrome.runtime.onMessage.addListener(
             broadcastState();
             sendResponse({ success: true });
             break;
+          }
 
           case "START_PICKER":
             state.isPicking = true;

@@ -185,6 +185,7 @@ function getRetryDelayMs(attempt: number, options: RetryOptions, error: unknown)
 async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
   const retries = options.retries ?? DEFAULT_RETRY_OPTIONS.retries;
   let attempt = 0;
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     try {
       return await fn();
@@ -389,6 +390,7 @@ export class VoiceSynthesizer {
     let nextIndex = 0;
 
     const workers = Array.from({ length: Math.min(maxConcurrency, script.segments.length) }, async () => {
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         const index = nextIndex;
         nextIndex += 1;

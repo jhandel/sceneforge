@@ -23,4 +23,12 @@ module.exports = {
     "@typescript-eslint/no-unused-vars": "off",
     "no-unused-vars": "off",
   },
+  overrides: [
+    {
+      files: ["packages/extension/src/content/content-script.ts"],
+      rules: {
+        "no-inner-declarations": "off",
+      },
+    },
+  ],
 };

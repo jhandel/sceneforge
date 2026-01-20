@@ -3,6 +3,8 @@
  * Captures user interactions and handles element picking.
  */
 
+/* eslint-disable no-inner-declarations */
+
 import {
   generateSelectorCandidates,
   getBestSelector,
@@ -1245,7 +1247,7 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
 
         case "navigate": {
           if (action.path) {
-            let path = action.path.replace("{baseURL}", window.location.origin);
+            const path = action.path.replace("{baseURL}", window.location.origin);
             const targetUrl = path.startsWith("http")
               ? path
               : `${window.location.origin}${path}`;
@@ -1595,10 +1597,11 @@ if (windowWithGuard.__demoYamlCreatorLoaded) {
           sendResponse({ success: true });
           break;
 
-        case "TEST_SELECTOR":
+        case "TEST_SELECTOR": {
           const testResult = handleTestSelector(message.selector);
           sendResponse(testResult);
           break;
+        }
 
         case "HIGHLIGHT_ELEMENT":
           handleHighlightElement(message.selector);
