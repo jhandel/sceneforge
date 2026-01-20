@@ -11,7 +11,6 @@
         "@semantic-release/exec": "^6.0.3",
         "@semantic-release/git": "^10.0.1",
         "@semantic-release/github": "^11.0.1",
-        "@semantic-release/npm": "^12.0.1",
         "@semantic-release/release-notes-generator": "^14.0.3",
         "@types/chrome": "0.0.304",
         "@types/node": "^20.10.6",
@@ -25,27 +24,27 @@
       },
     },
     "packages/cli": {
-      "name": "@jhandel/sceneforge-cli",
+      "name": "@t3lnet/sceneforge-cli",
       "version": "0.1.0",
       "bin": {
         "sceneforge": "./bin/sceneforge.js",
       },
       "dependencies": {
-        "@jhandel/sceneforge-generation": "workspace:*",
-        "@jhandel/sceneforge-playwright": "workspace:*",
         "@playwright/test": "^1.57.0",
+        "@t3lnet/sceneforge-generation": "workspace:*",
+        "@t3lnet/sceneforge-playwright": "workspace:*",
         "dotenv": "^17.2.3",
         "tsx": "^4.20.5",
       },
     },
     "packages/extension": {
-      "name": "@jhandel/sceneforge-extension",
+      "name": "@t3lnet/sceneforge-extension",
       "version": "0.1.0",
       "dependencies": {
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
-        "@jhandel/sceneforge-shared": "workspace:*",
+        "@t3lnet/sceneforge-shared": "workspace:*",
         "lucide-react": "^0.468.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
@@ -65,7 +64,7 @@
       },
     },
     "packages/generation": {
-      "name": "@jhandel/sceneforge-generation",
+      "name": "@t3lnet/sceneforge-generation",
       "version": "0.1.0",
       "dependencies": {
         "elevenlabs": "^1.59.0",
@@ -75,11 +74,11 @@
       },
     },
     "packages/playwright": {
-      "name": "@jhandel/sceneforge-playwright",
+      "name": "@t3lnet/sceneforge-playwright",
       "version": "0.1.0",
       "dependencies": {
-        "@jhandel/sceneforge-generation": "workspace:*",
-        "@jhandel/sceneforge-shared": "workspace:*",
+        "@t3lnet/sceneforge-generation": "workspace:*",
+        "@t3lnet/sceneforge-shared": "workspace:*",
         "yaml": "^2.7.0",
       },
       "devDependencies": {
@@ -91,8 +90,8 @@
       },
     },
     "packages/sceneforge": {
-      "name": "@jhandel/sceneforge",
-      "version": "0.1.0",
+      "name": "@t3lnet/sceneforge",
+      "version": "1.0.0",
       "dependencies": {
         "elevenlabs": "^1.59.0",
         "yaml": "^2.7.0",
@@ -103,7 +102,7 @@
       },
     },
     "packages/shared": {
-      "name": "@jhandel/sceneforge-shared",
+      "name": "@t3lnet/sceneforge-shared",
       "version": "0.1.0",
       "dependencies": {
         "yaml": "^2.7.0",
@@ -233,18 +232,6 @@
 
     "@jest/schemas": ["@jest/schemas@29.6.3", "", { "dependencies": { "@sinclair/typebox": "^0.27.8" } }, "sha512-mo5j5X+jIZmJQveBKeS/clAueipV7KgiX1vMgCxam1RNYiqE1w62n0/tJJnHtjW8ZHcQco5gY85jA3mi0L+nSA=="],
 
-    "@jhandel/sceneforge": ["@jhandel/sceneforge@workspace:packages/sceneforge"],
-
-    "@jhandel/sceneforge-cli": ["@jhandel/sceneforge-cli@workspace:packages/cli"],
-
-    "@jhandel/sceneforge-extension": ["@jhandel/sceneforge-extension@workspace:packages/extension"],
-
-    "@jhandel/sceneforge-generation": ["@jhandel/sceneforge-generation@workspace:packages/generation"],
-
-    "@jhandel/sceneforge-playwright": ["@jhandel/sceneforge-playwright@workspace:packages/playwright"],
-
-    "@jhandel/sceneforge-shared": ["@jhandel/sceneforge-shared@workspace:packages/shared"],
-
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
 
     "@jridgewell/remapping": ["@jridgewell/remapping@2.3.5", "", { "dependencies": { "@jridgewell/gen-mapping": "^0.3.5", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-LI9u/+laYG4Ds1TDKSJW2YPrIlcVYOwi2fUC6xB43lueCjgxV4lffOCZCtYFiH6TNOX+tQKXx97T4IKHbhyHEQ=="],
@@ -366,6 +353,18 @@
     "@sindresorhus/is": ["@sindresorhus/is@4.6.0", "", {}, "sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw=="],
 
     "@sindresorhus/merge-streams": ["@sindresorhus/merge-streams@4.0.0", "", {}, "sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ=="],
+
+    "@t3lnet/sceneforge": ["@t3lnet/sceneforge@workspace:packages/sceneforge"],
+
+    "@t3lnet/sceneforge-cli": ["@t3lnet/sceneforge-cli@workspace:packages/cli"],
+
+    "@t3lnet/sceneforge-extension": ["@t3lnet/sceneforge-extension@workspace:packages/extension"],
+
+    "@t3lnet/sceneforge-generation": ["@t3lnet/sceneforge-generation@workspace:packages/generation"],
+
+    "@t3lnet/sceneforge-playwright": ["@t3lnet/sceneforge-playwright@workspace:packages/playwright"],
+
+    "@t3lnet/sceneforge-shared": ["@t3lnet/sceneforge-shared@workspace:packages/shared"],
 
     "@types/babel__core": ["@types/babel__core@7.20.5", "", { "dependencies": { "@babel/parser": "^7.20.7", "@babel/types": "^7.20.7", "@types/babel__generator": "*", "@types/babel__template": "*", "@types/babel__traverse": "*" } }, "sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA=="],
 
@@ -1145,7 +1144,7 @@
 
     "strip-final-newline": ["strip-final-newline@2.0.0", "", {}, "sha512-BrpvfNAE3dcvq7ll3xVumzjKjZQ5tI1sEUIKr3Uoks0XUl45St3FlatVqef9prk4jRDzhW6WZg+3bk93y6pLjA=="],
 
-    "strip-json-comments": ["strip-json-comments@2.0.1", "", {}, "sha512-4gB8na07fecVVkOI6Rs4e7T6NOTki5EmL7TUduTs6bu3EdnSycntVJ4re8kgZA+wx9IueI2Y11bfbgwtzuE0KQ=="],
+    "strip-json-comments": ["strip-json-comments@3.1.1", "", {}, "sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig=="],
 
     "strip-literal": ["strip-literal@2.1.1", "", { "dependencies": { "js-tokens": "^9.0.1" } }, "sha512-631UJ6O00eNGfMiWG78ck80dfBab8X6IVFB51jZK5Icd7XAs60Z5y7QdSd/wGIklnWvRbUNloVzhOKKmutxQ6Q=="],
 
@@ -1290,8 +1289,6 @@
     "@babel/helper-compilation-targets/lru-cache": ["lru-cache@5.1.1", "", { "dependencies": { "yallist": "^3.0.2" } }, "sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w=="],
 
     "@babel/helper-compilation-targets/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
-
-    "@eslint/eslintrc/strip-json-comments": ["strip-json-comments@3.1.1", "", {}, "sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig=="],
 
     "@octokit/plugin-paginate-rest/@octokit/types": ["@octokit/types@15.0.2", "", { "dependencies": { "@octokit/openapi-types": "^26.0.0" } }, "sha512-rR+5VRjhYSer7sC51krfCctQhVTmjyUMAaShfPB8mscVa8tSoLyon3coxQmXu0ahJoLVWl8dSGD/3OGZlFV44Q=="],
 
@@ -1708,6 +1705,8 @@
     "playwright/fsevents": ["fsevents@2.3.2", "", { "os": "darwin" }, "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA=="],
 
     "pretty-format/ansi-styles": ["ansi-styles@5.2.0", "", {}, "sha512-Cxwpt2SfTzTtXcfOlzGEee8O+c+MmUgGrNiBcXnuWxuFJHe6a5Hz7qwhwe5OgaSYI0IJvkLqWX1ASG+cJOkEiA=="],
+
+    "rc/strip-json-comments": ["strip-json-comments@2.0.1", "", {}, "sha512-4gB8na07fecVVkOI6Rs4e7T6NOTki5EmL7TUduTs6bu3EdnSycntVJ4re8kgZA+wx9IueI2Y11bfbgwtzuE0KQ=="],
 
     "read-pkg/parse-json": ["parse-json@8.3.0", "", { "dependencies": { "@babel/code-frame": "^7.26.2", "index-to-position": "^1.1.0", "type-fest": "^4.39.1" } }, "sha512-ybiGyvspI+fAoRQbIPRddCcSTV9/LsJbf0e/S85VLowVGzRmokfneg2kwVW/KU5rOXrPSbF1qAKPMgNTqqROQQ=="],
 
