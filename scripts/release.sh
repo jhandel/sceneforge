@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/packages/sceneforge"
+PACKAGE_README="$PACKAGE_DIR/README.md"
+ROOT_README="$ROOT_DIR/README.md"
 
 VERSION="${1:-}"
 TAG="${2:-latest}"
@@ -24,6 +26,26 @@ echo "[release] Building @t3lnet/sceneforge..."
 bun run build:sceneforge
 
 cd "$PACKAGE_DIR"
+
+TEMP_README=""
+if [[ -f "$ROOT_README" ]]; then
+  if [[ -f "$PACKAGE_README" ]]; then
+    TEMP_README="$(mktemp)"
+    cp "$PACKAGE_README" "$TEMP_README"
+  else
+    TEMP_README="__DELETE__"
+  fi
+  cp "$ROOT_README" "$PACKAGE_README"
+fi
+
+cleanup_readme() {
+  if [[ "$TEMP_README" == "__DELETE__" ]]; then
+    rm -f "$PACKAGE_README"
+  elif [[ -n "$TEMP_README" && -f "$TEMP_README" ]]; then
+    mv "$TEMP_README" "$PACKAGE_README"
+  fi
+}
+trap cleanup_readme EXIT
 
 if ! npm --workspaces=false whoami >/dev/null 2>&1; then
   echo "[release] npm auth missing. Run:"
