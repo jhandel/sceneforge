@@ -1,6 +1,6 @@
 {
   "name": "@t3lnet/sceneforge",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "SceneForge runner and generation utilities for YAML-driven demos",
   "type": "module",
   "main": "./dist/index.cjs",
