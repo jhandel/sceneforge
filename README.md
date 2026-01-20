@@ -410,6 +410,18 @@ bun run typecheck
 bun run chrome
 ```
 
+## Manual Release (Library)
+
+```bash
+./scripts/release.sh <version> [tag]
+# example:
+./scripts/release.sh 0.2.0 next
+```
+
+Notes:
+- Requires an npm automation token with publish access to @t3lnet.
+- Builds are manual (no CI/CD publish).
+
 ## Chrome Extension Features
 
 ### Recording Mode
