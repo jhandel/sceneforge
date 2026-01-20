@@ -19,13 +19,11 @@ flowchart LR
   Extension["@t3lnet/sceneforge-extension"] -->|"records actions"| YAML["YAML demo definition"]
   Shared["@t3lnet/sceneforge-shared"] --> Extension
   Shared --> Playwright["@t3lnet/sceneforge-playwright"]
-  Shared --> CLI["@t3lnet/sceneforge-cli"]
-  Generation["@t3lnet/sceneforge-generation"] --> CLI
-  Shared --> Library["@t3lnet/sceneforge"]
-  Generation --> Library
-  Playwright --> Library
+  Shared --> Package["@t3lnet/sceneforge (library + CLI)"]
+  Generation["@t3lnet/sceneforge-generation"] --> Package
+  Playwright --> Package
   Playwright -->|"video + scripts"| Output["output/"]
-  CLI --> Output
+  Package --> Output
 ```
 
 ### End-to-End Pipeline
@@ -98,7 +96,7 @@ You can also point the CLI at a specific env file with `--env-file`.
 The CLI `record` command replays YAML and records video + scripts:
 
 ```bash
-bunx @t3lnet/sceneforge-cli record \
+npx sceneforge record \
   --definition examples/create-dxf-quote.yaml \
   --base-url http://localhost:5173
 ```
@@ -203,7 +201,7 @@ The CLI packages the post-processing pipeline for voiceover, video splits, and f
 Run a setup YAML to log in once and save Playwright storage state for later sessions:
 
 ```bash
-bunx @t3lnet/sceneforge-cli setup \
+npx sceneforge setup \
   --definition examples/setup-login.yaml \
   --base-url http://localhost:5173 \
   --start-path /app \
@@ -214,7 +212,7 @@ bunx @t3lnet/sceneforge-cli setup \
 Then reuse the cached session during recording or pipeline runs:
 
 ```bash
-bunx @t3lnet/sceneforge-cli record \
+npx sceneforge record \
   --definition examples/create-dxf-quote.yaml \
   --base-url http://localhost:5173 \
   --storage-state output/storage/login.json
@@ -222,18 +220,18 @@ bunx @t3lnet/sceneforge-cli record \
 
 ```bash
 # Record a demo with Playwright and generate script JSON
-bunx @t3lnet/sceneforge-cli record \
+npx sceneforge record \
   --definition examples/create-dxf-quote.yaml \
   --base-url http://localhost:5173
 
 # Run the full pipeline in one command
-bunx @t3lnet/sceneforge-cli pipeline \
+npx sceneforge pipeline \
   --definition examples/create-dxf-quote.yaml \
   --base-url http://localhost:5173 \
   --clean
 
 # Preview pipeline steps and skip existing artifacts
-bunx @t3lnet/sceneforge-cli pipeline \
+npx sceneforge pipeline \
   --definition examples/create-dxf-quote.yaml \
   --resume \
   --progress \
@@ -241,13 +239,13 @@ bunx @t3lnet/sceneforge-cli pipeline \
 
 # Split, voiceover, add-audio, concat
 # (The sample YAML uses name: "new-demo", so downstream commands use that demo name.)
-bunx @t3lnet/sceneforge-cli split --demo new-demo
-bunx @t3lnet/sceneforge-cli voiceover --demo new-demo
-bunx @t3lnet/sceneforge-cli add-audio --demo new-demo
-bunx @t3lnet/sceneforge-cli concat --demo new-demo
+npx sceneforge split --demo new-demo
+npx sceneforge voiceover --demo new-demo
+npx sceneforge add-audio --demo new-demo
+npx sceneforge concat --demo new-demo
 
 # Concat with intro/outro and background music (CLI overrides)
-bunx @t3lnet/sceneforge-cli concat --demo new-demo \
+npx sceneforge concat --demo new-demo \
   --intro assets/intro.mp4 \
   --outro assets/outro.mp4 \
   --music assets/background.mp3 \

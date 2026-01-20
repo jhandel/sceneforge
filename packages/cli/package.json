@@ -1,6 +1,7 @@
 {
   "name": "@t3lnet/sceneforge-cli",
   "version": "0.1.0",
+  "deprecated": "Use @t3lnet/sceneforge (CLI is bundled).",
   "private": true,
   "description": "SceneForge CLI for demo video generation and post-processing",
   "type": "module",
