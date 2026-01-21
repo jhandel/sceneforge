@@ -28,7 +28,7 @@ Options:
   --demo <name>           Demo name (resolved in --definitions-dir)
   --definitions-dir <p>   Directory for demo YAML files (default: examples)
   --base-url <url>        Base URL for the demo (required)
-  --start-path <path>     Optional path/URL to open before running actions
+  --start-path <path>     Optional path/URL to open before running actions (defaults to base URL)
   --asset-root <path>     Base directory for relative upload files
   --env-file <path>       Env file for secrets (defaults to .env if present)
   --locale <locale>       Locale for requests (default: en-US)
@@ -262,9 +262,8 @@ export async function runRecordDemoCommand(argv) {
   const videoRecordingStartTime = Date.now();
   const startUrl = resolveStartUrl(startPath, baseUrl);
 
-  if (startUrl) {
-    await page.goto(startUrl, { waitUntil: "networkidle" });
-  }
+  const initialUrl = startUrl || baseUrl;
+  await page.goto(initialUrl, { waitUntil: "networkidle" });
   const result = await runDemo(
     definition,
     {

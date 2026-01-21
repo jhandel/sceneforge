@@ -24,7 +24,7 @@ Options:
   --demo <name>           Demo name (resolved in --definitions-dir)
   --definitions-dir <p>   Directory for YAML files (default: examples)
   --base-url <url>        Base URL for the app (required)
-  --start-path <path>     Optional path/URL to open before running actions
+  --start-path <path>     Optional path/URL to open before running actions (defaults to base URL)
   --asset-root <path>     Base directory for relative upload files
   --root <path>           Project root (defaults to cwd)
   --output-dir <path>     Output directory (defaults to output or e2e/output)
@@ -185,9 +185,8 @@ export async function runSetupCommand(argv) {
     const page = await context.newPage();
     const startUrl = resolveStartUrl(startPath, baseUrl);
 
-    if (startUrl) {
-      await page.goto(startUrl, { waitUntil: "networkidle" });
-    }
+    const initialUrl = startUrl || baseUrl;
+    await page.goto(initialUrl, { waitUntil: "networkidle" });
 
     const result = await runDemo(
       definition,
