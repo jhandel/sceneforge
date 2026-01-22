@@ -244,6 +244,11 @@ npx sceneforge voiceover --demo new-demo
 npx sceneforge add-audio --demo new-demo
 npx sceneforge concat --demo new-demo
 
+# Manage voice cache
+npx sceneforge voice-cache stats
+npx sceneforge voice-cache list
+npx sceneforge voice-cache clear
+
 # Concat with intro/outro and background music (CLI overrides)
 npx sceneforge concat --demo new-demo \
   --intro assets/intro.mp4 \
@@ -290,34 +295,85 @@ media:
 Notes:
 - `split` reads `output/scripts/<demo>.json` and `output/videos/<demo>.webm`.
 - `voiceover` uses `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID`.
+- `voiceover` caches synthesized audio to avoid redundant API calls (see Voice Cache below).
 - `add-audio` pads or extends clips to align audio with video.
 - `concat` re-encodes to avoid audio dropouts at clip boundaries.
 - `pipeline --resume` skips steps with existing artifacts; `--clean` overrides resume.
 - `setup` saves Playwright storage state to reuse login sessions.
+
+### Voice Cache (Cost Savings)
+
+SceneForge automatically caches synthesized voice audio to reduce ElevenLabs API costs. When the same text is synthesized with the same voice and settings, the cached audio is reused instead of making a new API call.
+
+**How it works:**
+- Cache is stored in `.voice-cache/` in your project root
+- Cache key is based on: voice ID, model ID, text, and voice settings (stability, similarity, style)
+- Cache is enabled by default for both `voiceover` and `pipeline` commands
+
+**CLI options:**
+```bash
+# Disable cache (always call API)
+npx sceneforge voiceover --demo my-demo --no-cache
+
+# Use custom cache directory
+npx sceneforge voiceover --demo my-demo --cache-dir /path/to/cache
+
+# Pipeline also supports cache options
+npx sceneforge pipeline --demo my-demo --base-url http://localhost:5173 --no-cache
+```
+
+**Cache management:**
+```bash
+# View cache statistics
+npx sceneforge voice-cache stats
+
+# List all cached entries
+npx sceneforge voice-cache list
+
+# Clear the entire cache
+npx sceneforge voice-cache clear
+
+# Remove entries not used in the last 7 days
+npx sceneforge voice-cache prune --days 7
+
+# Validate cache integrity
+npx sceneforge voice-cache validate
+```
+
+The cache is particularly useful when:
+- Re-running pipelines after video changes (narration stays the same)
+- Iterating on video timing without changing scripts
+- Running demos across multiple environments with the same narration
 
 By default, the CLI writes to `output/` in the project root (or `e2e/output` if it already exists). You can override with `--root` and `--output-dir`.
 
 ## Output Layout
 
 ```
-output/
-├── scripts/
-│   ├── <demo>.json
-│   ├── <demo>.srt
-│   ├── <demo>.md
-│   └── <demo>.voice.json
-├── videos/
-│   ├── <demo>.webm
-│   └── <demo>/
-│       ├── step_01_<stepId>.mp4
-│       ├── step_01_<stepId>_with_audio.mp4
-│       └── steps-manifest.json
-├── audio/
-│   └── <demo>/
-│       ├── manifest.json
-│       └── segment_*.mp3
-└── final/
-    └── <demo>.mp4
+project-root/
+├── .voice-cache/                 # Voice synthesis cache (cost savings)
+│   ├── index.json                # Cache index with metadata
+│   └── audio/
+│       └── <hash>.mp3            # Cached audio files
+│
+└── output/
+    ├── scripts/
+    │   ├── <demo>.json
+    │   ├── <demo>.srt
+    │   ├── <demo>.md
+    │   └── <demo>.voice.json
+    ├── videos/
+    │   ├── <demo>.webm
+    │   └── <demo>/
+    │       ├── step_01_<stepId>.mp4
+    │       ├── step_01_<stepId>_with_audio.mp4
+    │       └── steps-manifest.json
+    ├── audio/
+    │   └── <demo>/
+    │       ├── manifest.json
+    │       └── segment_*.mp3
+    └── final/
+        └── <demo>.mp4
 ```
 
 ## Programmatic Playback

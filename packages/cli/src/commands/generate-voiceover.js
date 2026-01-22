@@ -4,6 +4,7 @@ import { config as loadEnv } from "dotenv";
 import {
   createVoiceSynthesizer,
   generateTimingManifest,
+  getDefaultCacheDir,
 } from "@t3lnet/sceneforge-generation";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import {
@@ -32,15 +33,23 @@ Options:
   --root <path>         Project root (defaults to cwd)
   --output-dir <path>   Output directory (defaults to e2e/output or output)
   --env-file <path>     Environment file to load
+  --no-cache            Disable voice caching (always call ElevenLabs API)
+  --cache-dir <path>    Custom cache directory (default: .voice-cache in project root)
   --help, -h            Show this help message
 
 Environment Variables:
   ELEVENLABS_API_KEY    Your ElevenLabs API key (required)
   ELEVENLABS_VOICE_ID   Default voice ID for narration
 
+Cache Management:
+  Voice caching is enabled by default to reduce API costs. The cache stores
+  synthesized audio keyed by voice ID, model, text, and voice settings.
+  Use 'sceneforge voice-cache' command for cache management (stats, clear, etc.)
+
 Examples:
   sceneforge voiceover --list-voices
   sceneforge voiceover --demo create-quote
+  sceneforge voiceover --demo create-quote --no-cache
   sceneforge voiceover --script output/scripts/create-quote.json
   sceneforge voiceover --all
   sceneforge voiceover --generate-sounds
@@ -48,7 +57,7 @@ Examples:
 `);
 }
 
-async function getConfig(flags) {
+async function getConfig(flags, rootDir) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     console.error("[error] ELEVENLABS_API_KEY environment variable is required");
@@ -64,10 +73,22 @@ async function getConfig(flags) {
     process.exit(1);
   }
 
+  // Configure cache
+  let cache;
+  if (flags.noCache) {
+    cache = false;
+  } else {
+    const cacheDir = flags.cacheDir
+      ? path.resolve(rootDir, flags.cacheDir)
+      : getDefaultCacheDir(rootDir);
+    cache = { cacheDir, enabled: true };
+  }
+
   return {
     apiKey,
     voiceId: voiceId || "",
     modelId: "eleven_multilingual_v2",
+    cache,
   };
 }
 
@@ -247,6 +268,8 @@ export async function runGenerateVoiceoverCommand(argv) {
     generateMusic: hasFlag(args, "--generate-music"),
     voiceId: getFlagValue(args, "--voice-id"),
     musicStyle: getFlagValue(args, "--music-style") || "tech",
+    noCache: hasFlag(args, "--no-cache"),
+    cacheDir: getFlagValue(args, "--cache-dir"),
   };
 
   if (help) {
@@ -270,7 +293,14 @@ export async function runGenerateVoiceoverCommand(argv) {
     loadEnv({ path: resolvedEnvFile });
   }
 
-  const config = await getConfig(flags);
+  const config = await getConfig(flags, rootDir);
+
+  // Log cache status
+  if (config.cache === false) {
+    console.log("[voice] Cache disabled - all segments will be synthesized via API");
+  } else {
+    console.log(`[voice] Cache enabled at: ${config.cache.cacheDir}`);
+  }
 
   if (flags.listVoices) {
     await listVoices(config);

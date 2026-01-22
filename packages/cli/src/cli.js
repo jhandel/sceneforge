@@ -7,6 +7,7 @@ import { runRecordDemoCommand } from "./commands/record-demo.js";
 import { runPipelineCommand } from "./commands/pipeline.js";
 import { runDoctorCommand } from "./commands/doctor.js";
 import { runSetupCommand } from "./commands/setup.js";
+import { runVoiceCacheCommand } from "./commands/voice-cache.js";
 
 function printHelp() {
   console.log(`
@@ -21,6 +22,7 @@ Commands:
   pipeline     Run the full pipeline (record → split → voiceover → add-audio → concat)
   split        Split recorded demo videos into per-step clips
   voiceover    Generate voiceover audio with ElevenLabs
+  voice-cache  Manage the voice cache (stats, list, clear, prune)
   add-audio    Add audio tracks to per-step clips
   concat       Concatenate clips into final demo videos
   doctor       Run diagnostics for ffmpeg/ffprobe/env
@@ -60,6 +62,10 @@ switch (normalized) {
   case "voiceover":
   case "generate-voiceover":
     await runGenerateVoiceoverCommand(rest);
+    break;
+  case "voice-cache":
+  case "cache":
+    await runVoiceCacheCommand(rest);
     break;
   case "add-audio":
   case "add-audio-to-steps":

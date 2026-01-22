@@ -29,6 +29,8 @@ Pipeline options:
   --padding <sec>        Extra padding after audio ends (default: 0.3)
   --env-file <path>      Env file for ElevenLabs credentials
   --voice-id <id>        Override ElevenLabs voice ID
+  --no-cache             Disable voice caching (always call ElevenLabs API)
+  --cache-dir <path>     Custom voice cache directory (default: .voice-cache)
   --root <path>          Project root (defaults to cwd)
   --output-dir <path>    Output directory (defaults to output or e2e/output)
 
@@ -182,6 +184,8 @@ export async function runPipelineCommand(argv) {
   const resume = hasFlag(args, "--resume");
   const showProgress = hasFlag(args, "--progress");
   const baseUrl = getFlagValue(args, "--base-url");
+  const noCache = hasFlag(args, "--no-cache");
+  const cacheDir = getFlagValue(args, "--cache-dir");
 
   // New media options
   const intro = getFlagValue(args, "--intro");
@@ -277,6 +281,12 @@ export async function runPipelineCommand(argv) {
   }
   if (voiceId) {
     voiceArgs.push("--voice-id", voiceId);
+  }
+  if (noCache) {
+    voiceArgs.push("--no-cache");
+  }
+  if (cacheDir) {
+    voiceArgs.push("--cache-dir", cacheDir);
   }
   await runStep("voiceover", plan.voiceover, () => runGenerateVoiceoverCommand(voiceArgs));
 

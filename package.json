@@ -17,7 +17,10 @@
     "lint": "eslint .",
     "test": "bun run test:unit && bun run test:e2e",
     "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:unit:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "prepack": "bun run typecheck && bun run test:unit && bun run build",
     "chrome": "open -a 'Google Chrome' 'chrome://extensions'"
   },
   "devDependencies": {

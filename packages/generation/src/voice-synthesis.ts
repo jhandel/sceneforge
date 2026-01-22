@@ -2,6 +2,12 @@ import { spawn } from "child_process";
 import { ElevenLabsClient } from "elevenlabs";
 import * as fs from "fs/promises";
 import * as path from "path";
+import {
+  VoiceCache,
+  VoiceCacheConfig,
+  normalizeVoiceSettings,
+  getDefaultCacheDir,
+} from "./voice-cache.js";
 
 const DEFAULT_MAX_OUTPUT_BYTES = 512 * 1024;
 const DEFAULT_MAX_CONCURRENCY = 2;
@@ -208,6 +214,8 @@ export interface VoiceSynthesisConfig {
   voiceId: string; // Custom voice ID from ElevenLabs
   modelId?: string; // Default: eleven_multilingual_v2
   outputFormat?: "mp3_44100_128" | "mp3_44100_192" | "pcm_16000" | "pcm_22050" | "pcm_24000";
+  /** Voice cache configuration. Set to false to disable caching entirely. */
+  cache?: VoiceCacheConfig | false;
 }
 
 /**
@@ -261,12 +269,40 @@ export interface VoiceSynthesisResult {
 export class VoiceSynthesizer {
   private client: ElevenLabsClient;
   private config: VoiceSynthesisConfig;
+  private cache: VoiceCache | null = null;
+  private cacheInitialized = false;
 
   constructor(config: VoiceSynthesisConfig) {
     this.config = config;
     this.client = new ElevenLabsClient({
       apiKey: config.apiKey,
     });
+
+    // Initialize cache if not explicitly disabled
+    if (config.cache !== false) {
+      const cacheConfig: VoiceCacheConfig = config.cache ?? {
+        cacheDir: getDefaultCacheDir(),
+        enabled: true,
+      };
+      this.cache = new VoiceCache(cacheConfig);
+    }
+  }
+
+  /**
+   * Ensures the cache is initialized before use
+   */
+  private async ensureCacheInitialized(): Promise<void> {
+    if (this.cache && !this.cacheInitialized) {
+      await this.cache.initialize();
+      this.cacheInitialized = true;
+    }
+  }
+
+  /**
+   * Gets the voice cache instance (if enabled)
+   */
+  getCache(): VoiceCache | null {
+    return this.cache;
   }
 
   /**
@@ -292,16 +328,42 @@ export class VoiceSynthesizer {
       similarityBoost?: number; // 0-1, higher = more similar to original voice
       style?: number; // 0-1, style exaggeration
       useSpeakerBoost?: boolean;
+      /** Skip cache lookup (still stores result in cache) */
+      skipCache?: boolean;
     }
-  ): Promise<{ durationMs: number }> {
+  ): Promise<{ durationMs: number; fromCache: boolean }> {
+    const modelId = this.config.modelId || "eleven_multilingual_v2";
+    const voiceSettings = normalizeVoiceSettings(options);
+
+    // Check cache first (unless skipCache is true)
+    if (this.cache && !options?.skipCache) {
+      await this.ensureCacheInitialized();
+
+      const cachedEntry = await this.cache.get(
+        this.config.voiceId,
+        modelId,
+        text,
+        voiceSettings
+      );
+
+      if (cachedEntry) {
+        // Copy cached file to output path
+        const cachedPath = this.cache.getAudioPath(cachedEntry);
+        await fs.copyFile(cachedPath, outputPath);
+        console.log(`[voice] Cache hit for "${text.slice(0, 40)}..." (saved API call)`);
+        return { durationMs: cachedEntry.durationMs, fromCache: true };
+      }
+    }
+
+    // Cache miss - call the API
     const audio = await this.client.textToSpeech.convert(this.config.voiceId, {
       text,
-      model_id: this.config.modelId || "eleven_multilingual_v2",
+      model_id: modelId,
       voice_settings: {
-        stability: options?.stability ?? 0.5,
-        similarity_boost: options?.similarityBoost ?? 0.75,
-        style: options?.style ?? 0.0,
-        use_speaker_boost: options?.useSpeakerBoost ?? true,
+        stability: voiceSettings.stability,
+        similarity_boost: voiceSettings.similarityBoost,
+        style: voiceSettings.style,
+        use_speaker_boost: voiceSettings.useSpeakerBoost,
       },
     });
 
@@ -316,14 +378,31 @@ export class VoiceSynthesizer {
     await fs.writeFile(outputPath, audioBuffer);
 
     const probedDurationMs = await probeMediaDurationMs(outputPath);
+    let durationMs: number;
+
     if (probedDurationMs !== null) {
-      return { durationMs: probedDurationMs };
+      durationMs = probedDurationMs;
+    } else {
+      const fileSizeBytes = audioBuffer.length;
+      durationMs = Math.round((fileSizeBytes * 8) / 128); // 128kbps
+      console.warn(`[voice] ffprobe unavailable, using estimated duration for ${outputPath}`);
     }
 
-    const fileSizeBytes = audioBuffer.length;
-    const estimatedDurationMs = Math.round((fileSizeBytes * 8) / 128); // 128kbps
-    console.warn(`[voice] ffprobe unavailable, using estimated duration for ${outputPath}`);
-    return { durationMs: estimatedDurationMs };
+    // Store in cache for future use
+    if (this.cache) {
+      await this.ensureCacheInitialized();
+      await this.cache.put(
+        this.config.voiceId,
+        modelId,
+        text,
+        voiceSettings,
+        audioBuffer,
+        durationMs
+      );
+      await this.cache.saveIndex();
+    }
+
+    return { durationMs, fromCache: false };
   }
 
   /**
@@ -419,7 +498,8 @@ export class VoiceSynthesizer {
             text: segment.text,
           };
 
-          console.log(`[voice] Synthesized: ${segment.stepId} (${result.durationMs.toFixed(0)}ms)`);
+          const cacheStatus = result.fromCache ? "[cached]" : "[new]";
+          console.log(`[voice] ${cacheStatus} ${segment.stepId} (${result.durationMs.toFixed(0)}ms)`);
         } catch (error) {
           console.error(`[voice] Failed to synthesize ${segment.stepId}:`, error);
           throw error;
