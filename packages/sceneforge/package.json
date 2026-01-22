@@ -1,6 +1,6 @@
 {
   "name": "@t3lnet/sceneforge",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "SceneForge runner and generation utilities for YAML-driven demos",
   "license": "MIT",
   "author": "T3LNET",
