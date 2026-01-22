@@ -116,3 +116,47 @@ export type {
   ScriptOutput,
   StepBoundary,
 } from "../../generation/src/script-generator";
+
+// LLM Context Tooling
+export {
+  // Template loading
+  loadTemplate,
+  loadTemplatesByCategory,
+  interpolateVariables,
+  composeTemplates,
+  listTemplates,
+  templateExists,
+  // Tool formatting
+  formatForTool,
+  getOutputPath,
+  getSplitOutputPaths,
+  getToolConfig,
+  getSupportedTools,
+  formatStageName,
+  getStageFileName,
+  isValidTool,
+  isValidFormat,
+  TOOL_CONFIGS,
+  // Context builder
+  buildContext,
+  deployContext,
+  previewContext,
+  listDeployedContext,
+  removeContext,
+  getSkill,
+  listSkills,
+  hasTemplates,
+} from "../context/index";
+
+export type {
+  LoadedTemplate,
+  TemplateVariables,
+  TargetTool,
+  DeployFormat,
+  ToolConfig,
+  FormattedOutput,
+  Stage,
+  ContextBuilderOptions,
+  DeployResult,
+  PreviewResult,
+} from "../context/index";

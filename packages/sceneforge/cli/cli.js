@@ -7,6 +7,7 @@ import { runRecordDemoCommand } from "./commands/record-demo.js";
 import { runPipelineCommand } from "./commands/pipeline.js";
 import { runDoctorCommand } from "./commands/doctor.js";
 import { runSetupCommand } from "./commands/setup.js";
+import { runContextCommand } from "./commands/context.js";
 
 function printHelp() {
   console.log(`
@@ -24,6 +25,7 @@ Commands:
   add-audio    Add audio tracks to per-step clips
   concat       Concatenate clips into final demo videos
   doctor       Run diagnostics for ffmpeg/ffprobe/env
+  context      Manage LLM context files for AI coding assistants
 
 Run "sceneforge <command> --help" for command-specific options.
 `);
@@ -72,6 +74,10 @@ switch (normalized) {
   case "doctor":
   case "diagnostics":
     await runDoctorCommand(rest);
+    break;
+  case "context":
+  case "ctx":
+    await runContextCommand(rest);
     break;
   default:
     console.error(`[error] Unknown command: ${command}`);

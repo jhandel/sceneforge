@@ -78,6 +78,63 @@ Cache is stored in `.voice-cache/` in your project root.
 - Voice cache reduces API costs by reusing previously synthesized audio.
 - Video pipeline steps require FFmpeg installed locally.
 
+## LLM Context Tooling
+
+SceneForge includes tooling to deploy instruction files for AI coding assistants, helping them understand your project and assist with demo creation.
+
+### Supported AI Tools
+
+| Tool | File | Description |
+|------|------|-------------|
+| Cursor | `.cursorrules` | Cursor AI IDE |
+| GitHub Copilot | `.github/copilot-instructions.md` | GitHub Copilot |
+| Claude Code | `CLAUDE.md` | Claude Code CLI |
+| Codex | `AGENTS.md` | OpenAI Codex |
+
+### Deploy Context Files
+
+```bash
+# Interactive wizard (recommended)
+npx sceneforge context deploy
+
+# Or with options
+npx sceneforge context deploy --target claude
+npx sceneforge context deploy --target all --format split
+```
+
+### Available Skills
+
+Skills are prompt templates for specific tasks:
+
+```bash
+# List available skills
+npx sceneforge context skill --list
+
+# View a skill
+npx sceneforge context skill --show generate-actions
+
+# Copy skill to clipboard
+npx sceneforge context skill --copy debug-selector
+```
+
+Available skills:
+- `generate-actions` - Generate demo actions for a page
+- `write-step-script` - Write voiceover scripts
+- `balance-timing` - Analyze and balance timing
+- `review-demo-yaml` - Review demo definitions
+- `debug-selector` - Debug failing selectors
+- `optimize-demo` - Optimize demo flow
+
+### Context Commands
+
+```bash
+sceneforge context deploy    # Deploy context files
+sceneforge context list      # List deployed files
+sceneforge context remove    # Remove context files
+sceneforge context preview   # Preview content
+sceneforge context skill     # Manage skills
+```
+
 ## Repository
 
 https://github.com/jhandel/sceneforge

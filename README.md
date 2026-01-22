@@ -521,6 +521,89 @@ Choose which strategies are enabled in the sidepanel:
 ### Diagnostics
 - `sceneforge doctor` checks for ffmpeg/ffprobe and ElevenLabs env setup.
 
+## LLM Context Tooling
+
+SceneForge includes tooling to deploy instruction files for AI coding assistants (Cursor, GitHub Copilot, Claude Code, Codex). These files help AI tools understand the SceneForge YAML format and assist with demo creation.
+
+### Deploy Context Files
+
+```bash
+# Interactive wizard - guides you through setup
+npx sceneforge context deploy
+
+# Deploy for specific tool
+npx sceneforge context deploy --target claude
+npx sceneforge context deploy --target cursor
+
+# Deploy for all tools
+npx sceneforge context deploy --target all
+
+# Split files by stage (for modular context)
+npx sceneforge context deploy --format split
+```
+
+The interactive wizard walks you through:
+1. Selecting target AI tool(s)
+2. Choosing which stage context to include
+3. Selecting output format (combined or split)
+4. Confirming deployment
+
+### Target Tools
+
+| Tool | File | Description |
+|------|------|-------------|
+| Cursor | `.cursorrules` | Cursor AI IDE rules |
+| GitHub Copilot | `.github/copilot-instructions.md` | Copilot instructions |
+| Claude Code | `CLAUDE.md` | Claude Code CLI context |
+| Codex | `AGENTS.md` | OpenAI Codex agents |
+
+### Stage-Specific Context
+
+Context is optimized for each demo creation phase:
+- **Stage 1: Actions** - Playwright actions, selectors, testing
+- **Stage 2: Scripts** - Voiceover scripts, timing, voice synthesis
+- **Stage 3: Balancing** - Align script duration with action timing
+- **Stage 4: Rebalancing** - Post-audio adjustment cycle
+
+### Skills
+
+Skills are reusable prompt templates for common tasks:
+
+```bash
+# List available skills
+npx sceneforge context skill --list
+
+# View a skill
+npx sceneforge context skill --show generate-actions
+
+# Copy skill to clipboard
+npx sceneforge context skill --copy debug-selector
+
+# Save skill to file
+npx sceneforge context skill --show balance-timing --output ./skill.md
+```
+
+Available skills:
+- `generate-actions` - Generate demo actions for a web page
+- `write-step-script` - Write voiceover script for actions
+- `balance-timing` - Analyze and balance step timing
+- `review-demo-yaml` - Review and improve a demo definition
+- `debug-selector` - Debug failing selectors
+- `optimize-demo` - Optimize demo for better flow
+
+### Other Context Commands
+
+```bash
+# List deployed context files
+npx sceneforge context list
+
+# Preview context content
+npx sceneforge context preview --target claude
+
+# Remove deployed context files
+npx sceneforge context remove --force
+```
+
 ## Troubleshooting
 
 - `FFmpeg is not installed`: install FFmpeg and re-run `split`, `add-audio`, or `concat`.
