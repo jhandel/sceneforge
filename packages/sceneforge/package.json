@@ -1,6 +1,6 @@
 {
   "name": "@t3lnet/sceneforge",
-  "version": "1.0.10",
+  "version": "1.0.23",
   "description": "SceneForge runner and generation utilities for YAML-driven demos",
   "license": "MIT",
   "author": "T3LNET",
@@ -38,7 +38,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --sourcemap --clean --out-dir dist"
+    "build": "tsup src/index.ts --format esm,cjs --dts --sourcemap --clean --out-dir dist && cp -r context/templates dist"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

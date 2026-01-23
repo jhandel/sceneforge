@@ -1,8 +1,10 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import { loadDemoDefinition } from "@t3lnet/sceneforge-playwright";
+import { loadDemoDefinition } from "@t3lnet/sceneforge";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import { ensureDir, getOutputPaths, resolveRoot, toAbsolute } from "../utils/paths.js";
+import { getQualityHelpText } from "../utils/quality.js";
+import { getViewportHelpText, getOutputDimensionsHelpText } from "../utils/dimensions.js";
 import { runRecordDemoCommand } from "./record-demo.js";
 import { runSplitVideoCommand } from "./split-video.js";
 import { runGenerateVoiceoverCommand } from "./generate-voiceover.js";
@@ -29,8 +31,6 @@ Pipeline options:
   --padding <sec>        Extra padding after audio ends (default: 0.3)
   --env-file <path>      Env file for ElevenLabs credentials
   --voice-id <id>        Override ElevenLabs voice ID
-  --no-cache             Disable voice caching (always call ElevenLabs API)
-  --cache-dir <path>     Custom voice cache directory (default: .voice-cache)
   --root <path>          Project root (defaults to cwd)
   --output-dir <path>    Output directory (defaults to output or e2e/output)
 
@@ -42,6 +42,9 @@ Media options (for final video):
   --music-loop           Loop music if shorter than video
   --music-fade-in <s>    Fade in duration for music (default: 1)
   --music-fade-out <s>   Fade out duration for music (default: 2)
+${getQualityHelpText()}
+${getViewportHelpText()}
+${getOutputDimensionsHelpText()}
 
   --help, -h             Show this help message
 
@@ -50,6 +53,7 @@ Examples:
   sceneforge pipeline --demo create-quote --definitions-dir examples --base-url http://localhost:5173 --clean
   sceneforge pipeline --demo create-quote --output-dir output --resume --progress
   sceneforge pipeline --demo create-quote --intro assets/intro.mp4 --music assets/bg-music.mp3
+  sceneforge pipeline --demo create-quote --base-url http://localhost:5173 --quality high
 `);
 }
 
@@ -184,8 +188,6 @@ export async function runPipelineCommand(argv) {
   const resume = hasFlag(args, "--resume");
   const showProgress = hasFlag(args, "--progress");
   const baseUrl = getFlagValue(args, "--base-url");
-  const noCache = hasFlag(args, "--no-cache");
-  const cacheDir = getFlagValue(args, "--cache-dir");
 
   // New media options
   const intro = getFlagValue(args, "--intro");
@@ -195,6 +197,21 @@ export async function runPipelineCommand(argv) {
   const musicLoop = hasFlag(args, "--music-loop");
   const musicFadeIn = getFlagValue(args, "--music-fade-in");
   const musicFadeOut = getFlagValue(args, "--music-fade-out");
+
+  // Video quality options
+  const quality = getFlagValue(args, "--quality");
+  const crf = getFlagValue(args, "--crf");
+  const codec = getFlagValue(args, "--codec");
+
+  // Viewport options (for recording)
+  const viewport = getFlagValue(args, "--viewport");
+  const viewportWidth = getFlagValue(args, "--width");
+  const viewportHeight = getFlagValue(args, "--height");
+
+  // Output dimension options (for video processing)
+  const outputSize = getFlagValue(args, "--output-size");
+  const outputWidth = getFlagValue(args, "--output-width");
+  const outputHeight = getFlagValue(args, "--output-height");
 
   const rootDir = resolveRoot(root);
   const outputPaths = await getOutputPaths(rootDir, outputDir);
@@ -236,6 +253,24 @@ export async function runPipelineCommand(argv) {
       if (outro) console.log(`  - Outro: ${outro}`);
       if (music) console.log(`  - Music: ${music}`);
     }
+    if (quality || crf || codec) {
+      console.log("\nVideo quality options:");
+      if (quality) console.log(`  - Quality preset: ${quality}`);
+      if (crf) console.log(`  - CRF: ${crf}`);
+      if (codec) console.log(`  - Codec: ${codec}`);
+    }
+    if (viewport || viewportWidth || viewportHeight) {
+      console.log("\nViewport options:");
+      if (viewport) console.log(`  - Viewport: ${viewport}`);
+      if (viewportWidth) console.log(`  - Width: ${viewportWidth}`);
+      if (viewportHeight) console.log(`  - Height: ${viewportHeight}`);
+    }
+    if (outputSize || outputWidth || outputHeight) {
+      console.log("\nOutput dimension options:");
+      if (outputSize) console.log(`  - Output size: ${outputSize}`);
+      if (outputWidth) console.log(`  - Output width: ${outputWidth}`);
+      if (outputHeight) console.log(`  - Output height: ${outputHeight}`);
+    }
     return;
   }
 
@@ -271,8 +306,33 @@ export async function runPipelineCommand(argv) {
     sharedArgs.push("--output-dir", outputDir);
   }
 
+  // Build quality args to pass through to video processing commands
+  const qualityArgs = [];
+  if (quality) {
+    qualityArgs.push("--quality", quality);
+  }
+  if (crf) {
+    qualityArgs.push("--crf", crf);
+  }
+  if (codec) {
+    qualityArgs.push("--codec", codec);
+  }
+
+  // Build output dimension args to pass through to video processing commands
+  const outputDimensionArgs = [];
+  if (outputSize) {
+    outputDimensionArgs.push("--output-size", outputSize);
+  }
+  if (outputWidth) {
+    outputDimensionArgs.push("--output-width", outputWidth);
+  }
+  if (outputHeight) {
+    outputDimensionArgs.push("--output-height", outputHeight);
+  }
+
+  // Split and add-audio use lossless encoding for intermediates (no quality args needed)
   await runStep("split", plan.split, () =>
-    runSplitVideoCommand(["--demo", demoName, ...sharedArgs])
+    runSplitVideoCommand(["--demo", demoName, ...sharedArgs, ...outputDimensionArgs])
   );
 
   const voiceArgs = ["--demo", demoName, ...sharedArgs];
@@ -282,22 +342,17 @@ export async function runPipelineCommand(argv) {
   if (voiceId) {
     voiceArgs.push("--voice-id", voiceId);
   }
-  if (noCache) {
-    voiceArgs.push("--no-cache");
-  }
-  if (cacheDir) {
-    voiceArgs.push("--cache-dir", cacheDir);
-  }
   await runStep("voiceover", plan.voiceover, () => runGenerateVoiceoverCommand(voiceArgs));
 
-  const audioArgs = ["--demo", demoName, ...sharedArgs];
+  // Add-audio uses lossless encoding for intermediates (no quality args needed)
+  const audioArgs = ["--demo", demoName, ...sharedArgs, ...outputDimensionArgs];
   if (padding) {
     audioArgs.push("--padding", padding);
   }
   await runStep("add-audio", plan.addAudio, () => runAddAudioCommand(audioArgs));
 
-  // Build concat args with media options
-  const concatArgs = ["--demo", demoName, ...sharedArgs];
+  // Concat applies final compression - quality args are used here
+  const concatArgs = ["--demo", demoName, ...sharedArgs, ...qualityArgs, ...outputDimensionArgs];
   if (intro) {
     concatArgs.push("--intro", intro);
   }

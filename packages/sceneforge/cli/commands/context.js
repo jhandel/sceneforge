@@ -287,7 +287,7 @@ ${colors.blue}══════════════════════
 
     // Show what files will be created
     const { deployContext, getToolConfig, getSupportedTools } = await import(
-      "../../context/index.js"
+      "../../dist/index.js"
     );
 
     const tools = target === "all" ? getSupportedTools() : [target];
@@ -395,7 +395,7 @@ async function runDeployCommand(args) {
 
   // Dynamic import of context module
   const { deployContext, isValidTool, isValidFormat, getSupportedTools } = await import(
-    "../../context/index.js"
+    "../../dist/index.js"
   );
 
   // Validate target
@@ -487,7 +487,7 @@ async function runListCommand(args) {
 
   const outputDir = resolveRoot(output);
 
-  const { listDeployedContext } = await import("../../context/index.js");
+  const { listDeployedContext } = await import("../../dist/index.js");
 
   try {
     const { files } = await listDeployedContext(outputDir);
@@ -532,7 +532,7 @@ async function runRemoveCommand(args) {
   const outputDir = resolveRoot(output);
 
   const { removeContext, isValidTool, getSupportedTools } = await import(
-    "../../context/index.js"
+    "../../dist/index.js"
   );
 
   // Validate target
@@ -596,7 +596,7 @@ async function runPreviewCommand(args) {
   }
 
   const { previewContext, isValidTool, getSupportedTools } = await import(
-    "../../context/index.js"
+    "../../dist/index.js"
   );
 
   // Validate target
@@ -640,7 +640,7 @@ async function runSkillCommand(args) {
   const copy = getFlagValue(args, "--copy");
   const output = getFlagValue(args, "--output");
 
-  const { listSkills, getSkill } = await import("../../context/index.js");
+  const { listSkills, getSkill } = await import("../../dist/index.js");
 
   if (list) {
     try {

@@ -4,10 +4,22 @@ import { checkFFmpeg, getMediaDuration, runFFmpeg } from "../utils/media.js";
 import { getOutputPaths, readJson, resolveRoot } from "../utils/paths.js";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import { sanitizeFileSegment } from "../utils/sanitize.js";
+import {
+  getIntermediateEncodingArgs,
+} from "../utils/quality.js";
+import {
+  parseOutputDimensions,
+  getOutputDimensionsHelpText,
+  getScaleFilterArgs,
+  logOutputDimensions,
+} from "../utils/dimensions.js";
 
 function printHelp() {
   console.log(`
 Split recorded demo video into per-step clips
+
+Uses lossless encoding for intermediate files to preserve quality.
+Final compression is applied only at the concat step.
 
 Usage:
   sceneforge split [options]
@@ -18,9 +30,11 @@ Options:
   --root <path>         Project root (defaults to cwd)
   --output-dir <path>   Output directory (defaults to e2e/output or output)
   --help, -h            Show this help message
+${getOutputDimensionsHelpText()}
 
 Examples:
   sceneforge split --demo create-quote
+  sceneforge split --demo create-quote --output-size 1080p
   sceneforge split --all
 `);
 }
@@ -54,8 +68,10 @@ async function findVideoFile(demoName, videosDir, testResultsDir) {
   return null;
 }
 
-async function splitDemo(demoName, paths) {
-  console.log(`\n[split] Processing: ${demoName}\n`);
+async function splitDemo(demoName, paths, outputDimensions = null) {
+  console.log(`\n[split] Processing: ${demoName}`);
+  console.log("[split] Using lossless encoding for intermediate files");
+  logOutputDimensions(outputDimensions, "[split]");
 
   const scriptPath = path.join(paths.scriptsDir, `${demoName}.json`);
   let script;
@@ -116,6 +132,9 @@ async function splitDemo(demoName, paths) {
     );
 
     try {
+      // Use lossless encoding for intermediate files to prevent generation loss
+      const encodingArgs = getIntermediateEncodingArgs({ includeAudio: false });
+      const scaleArgs = getScaleFilterArgs(outputDimensions);
       await runFFmpeg([
         "-y",
         "-i",
@@ -124,10 +143,8 @@ async function splitDemo(demoName, paths) {
         String(startSec),
         "-t",
         String(duration),
-        "-c:v",
-        "libx264",
-        "-preset",
-        "fast",
+        ...scaleArgs,
+        ...encodingArgs,
         "-an",
         outputPath,
       ]);
@@ -173,7 +190,7 @@ async function splitDemo(demoName, paths) {
   console.log(`[split]   Manifest: ${manifestPath}`);
 }
 
-async function splitAll(paths) {
+async function splitAll(paths, outputDimensions = null) {
   console.log("\n[split] Processing all demos...\n");
 
   try {
@@ -191,7 +208,7 @@ async function splitAll(paths) {
 
     for (const file of scriptFiles) {
       const demoName = path.basename(file, ".json");
-      await splitDemo(demoName, paths);
+      await splitDemo(demoName, paths, outputDimensions);
     }
 
     console.log("\n[split] All demos processed!");
@@ -221,14 +238,15 @@ export async function runSplitVideoCommand(argv) {
 
   const rootDir = resolveRoot(root);
   const paths = await getOutputPaths(rootDir, outputDir);
+  const outputDimensions = parseOutputDimensions(args, getFlagValue);
 
   if (demo) {
-    await splitDemo(demo, paths);
+    await splitDemo(demo, paths, outputDimensions);
     return;
   }
 
   if (all) {
-    await splitAll(paths);
+    await splitAll(paths, outputDimensions);
     return;
   }
 

@@ -118,7 +118,7 @@ describe("context-builder", () => {
         outputDir: tempDir,
       });
 
-      expect(results.length).toBe(1);
+      expect(results.length).toBe(2);
       expect(results[0].created).toBe(true);
 
       const splitDir = path.join(tempDir, ".claude/rules");
@@ -134,8 +134,21 @@ describe("context-builder", () => {
         outputDir: tempDir,
       });
 
-      expect(results.length).toBe(4);
+      expect(results.length).toBe(5);
       expect(results.every((r) => r.created)).toBe(true);
+    });
+
+    it("updates combined file when split files are deployed", async () => {
+      await deployContext({
+        target: "claude",
+        stage: "actions",
+        format: "split",
+        outputDir: tempDir,
+      });
+
+      const claudeFile = await fs.readFile(path.join(tempDir, "CLAUDE.md"), "utf-8");
+      expect(claudeFile).toContain("split across the following stage files");
+      expect(claudeFile).toContain(".claude/rules/stage1-actions.md");
     });
   });
 

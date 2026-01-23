@@ -4,7 +4,7 @@ import { chromium } from "@playwright/test";
 import {
   loadDemoDefinition,
   runDemo,
-} from "@t3lnet/sceneforge-playwright";
+} from "@t3lnet/sceneforge";
 import { config as loadEnv } from "dotenv";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import {
@@ -15,6 +15,10 @@ import {
   toAbsolute,
 } from "../utils/paths.js";
 import { getMediaDuration } from "../utils/media.js";
+import {
+  parseViewportArgs,
+  getViewportHelpText,
+} from "../utils/dimensions.js";
 
 function printHelp() {
   console.log(`
@@ -28,50 +32,24 @@ Options:
   --demo <name>           Demo name (resolved in --definitions-dir)
   --definitions-dir <p>   Directory for demo YAML files (default: examples)
   --base-url <url>        Base URL for the demo (required)
-  --start-path <path>     Optional path/URL to open before running actions (defaults to base URL)
+  --start-path <path>     Optional path/URL to open before running actions
   --asset-root <path>     Base directory for relative upload files
   --env-file <path>       Env file for secrets (defaults to .env if present)
   --locale <locale>       Locale for requests (default: en-US)
   --root <path>           Project root (defaults to cwd)
   --output-dir <path>     Output directory (defaults to output or e2e/output)
   --storage-state <path>  Playwright storage state JSON
-  --viewport <WxH>        Viewport size, e.g. 1440x900 (default)
-  --width <px>            Viewport width (overrides --viewport)
-  --height <px>           Viewport height (overrides --viewport)
   --headed                Run browser headed
   --slowmo <ms>           Slow down Playwright actions
   --no-video              Skip video recording
   --help, -h              Show this help message
+${getViewportHelpText()}
 
 Examples:
   sceneforge record --definition demo-definitions/create-quote.yaml --base-url http://localhost:5173
   sceneforge record --demo create-quote --definitions-dir examples --base-url http://localhost:5173
+  sceneforge record --demo create-quote --base-url http://localhost:5173 --viewport 1920x1080
 `);
-}
-
-function parseViewport(args) {
-  const viewportValue = getFlagValue(args, "--viewport");
-  const widthValue = getFlagValue(args, "--width");
-  const heightValue = getFlagValue(args, "--height");
-
-  const defaultViewport = { width: 1440, height: 900 };
-
-  if (widthValue || heightValue) {
-    const width = widthValue ? Number(widthValue) : defaultViewport.width;
-    const height = heightValue ? Number(heightValue) : defaultViewport.height;
-    return { width, height };
-  }
-
-  if (!viewportValue) {
-    return defaultViewport;
-  }
-
-  const match = viewportValue.match(/^(\d+)x(\d+)$/i);
-  if (!match) {
-    return defaultViewport;
-  }
-
-  return { width: Number(match[1]), height: Number(match[2]) };
 }
 
 function resolveStartUrl(startPath, baseUrl) {
@@ -233,7 +211,9 @@ export async function runRecordDemoCommand(argv) {
   await ensureDir(outputPaths.outputDir);
   await ensureDir(outputPaths.videosDir);
 
-  const viewport = parseViewport(args);
+  const viewport = parseViewportArgs(args, getFlagValue);
+
+  console.log(`[record] Viewport: ${viewport.width}x${viewport.height}`);
 
   const recordDir = path.join(outputPaths.videosDir, ".recordings", definition.name);
   if (!noVideo) {
@@ -262,8 +242,9 @@ export async function runRecordDemoCommand(argv) {
   const videoRecordingStartTime = Date.now();
   const startUrl = resolveStartUrl(startPath, baseUrl);
 
-  const initialUrl = startUrl || baseUrl;
-  await page.goto(initialUrl, { waitUntil: "networkidle" });
+  if (startUrl) {
+    await page.goto(startUrl, { waitUntil: "networkidle" });
+  }
   const result = await runDemo(
     definition,
     {

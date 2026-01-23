@@ -217,6 +217,28 @@ Aim for variance within ±500ms per step:
 - [ ] Volume consistent across steps
 - [ ] No unexpected pauses
 
+### Video Quality Check
+SceneForge provides configurable quality settings to preserve video fidelity:
+- [ ] Video appears sharp (no compression artifacts)
+- [ ] Colors are accurate (no banding)
+- [ ] Text is readable (no blur from compression)
+- [ ] No visible quality degradation between steps
+
+**Quality Presets:**
+| Preset | CRF | Encoding | Use Case |
+|--------|-----|----------|----------|
+| `low` | 28 | fast | Quick drafts |
+| `medium` | 18 | medium | Default - balanced |
+| `high` | 10 | slow | Final delivery |
+
+**CLI Flags:** `--quality`, `--crf`, `--codec` (available on split, add-audio, concat)
+
+**If you notice quality issues:**
+1. Re-run with `--quality high` for better fidelity
+2. Ensure source recording is high quality (check `output/videos/<demo>.webm`)
+3. Try `--codec libx265` for better compression at same quality
+4. Check available disk space (low space can affect encoding)
+
 ## Final Checklist
 
 - [ ] All steps have acceptable timing variance
@@ -225,4 +247,6 @@ Aim for variance within ±500ms per step:
 - [ ] No dead air or overlap issues
 - [ ] Intro provides adequate context
 - [ ] Outro concludes naturally
+- [ ] Video quality is sharp and clear
+- [ ] Audio is clear with consistent volume
 - [ ] Overall demo flows professionally

@@ -301,6 +301,156 @@ Notes:
 - `pipeline --resume` skips steps with existing artifacts; `--clean` overrides resume.
 - `setup` saves Playwright storage state to reuse login sessions.
 
+### Video Quality Settings
+
+SceneForge provides configurable video quality settings through CLI flags. Quality can be controlled using presets or fine-tuned with individual settings.
+
+**Quality Presets:**
+
+| Preset | CRF | Encoding | Use Case |
+|--------|-----|----------|----------|
+| `low` | 28 | fast | Quick drafts, smaller files |
+| `medium` | 18 | medium | Default - balanced quality and size |
+| `high` | 10 | slow | Final delivery, best quality |
+
+**Supported Codecs:**
+
+| Codec | Name | Description |
+|-------|------|-------------|
+| `libx264` | H.264 | Excellent compatibility, plays everywhere (default) |
+| `libx265` | H.265/HEVC | ~50% smaller files, slower encoding |
+
+**CLI Flags (available on split, add-audio, concat):**
+
+```bash
+--quality <preset>    # Quality preset: low, medium, high (default: medium)
+--crf <value>         # Override CRF value (0-51, lower = better quality)
+--codec <codec>       # Video codec: libx264, libx265 (default: libx264)
+```
+
+**Examples:**
+
+```bash
+# Use high quality preset for final output
+npx sceneforge split --demo my-demo --quality high
+npx sceneforge add-audio --demo my-demo --quality high
+npx sceneforge concat --demo my-demo --quality high
+
+# Run full pipeline with high quality
+npx sceneforge pipeline --demo my-demo --base-url http://localhost:5173 --quality high
+
+# Use H.265 for smaller file sizes
+npx sceneforge concat --demo my-demo --codec libx265
+
+# Fine-tune with custom CRF
+npx sceneforge concat --demo my-demo --crf 15
+
+# Pipeline with custom quality settings
+npx sceneforge pipeline --demo my-demo --base-url http://localhost:5173 --crf 12 --codec libx265
+```
+
+**Why quality settings matter:**
+- Videos pass through multiple processing stages (split → add-audio → concat)
+- Each re-encoding can degrade quality (generation loss)
+- Higher quality settings (lower CRF) preserve visual fidelity across all stages
+- The `high` preset (CRF 10) produces near-lossless quality suitable for professional demos
+
+**File size considerations:**
+- `high` preset produces larger files than `medium` or `low`
+- H.265 codec (`libx265`) produces ~50% smaller files than H.264 at similar quality
+- For web distribution, `medium` preset with `libx264` offers the best compatibility
+
+### Viewport Settings (Recording)
+
+Control the output video resolution during recording:
+
+**CLI Flags (available on record and pipeline):**
+
+```bash
+--viewport <WxH|preset>      # Target video resolution (default: 1440x900)
+                             # Presets: 720p, 1080p, 1440p, 4k
+                             # Example: --viewport 1920x1080 or --viewport 1080p
+--width <px>                 # Video width (overrides --viewport)
+--height <px>                # Video height (overrides --viewport)
+```
+
+**Examples:**
+
+```bash
+# Record at 1080p resolution
+npx sceneforge record --definition demo.yaml --base-url http://localhost:5173 --viewport 1080p
+
+# Record at 4K for maximum resolution
+npx sceneforge record --definition demo.yaml --base-url http://localhost:5173 --viewport 4k
+
+# Pipeline with viewport settings
+npx sceneforge pipeline --demo my-demo --base-url http://localhost:5173 --viewport 1080p
+```
+
+### Output Dimensions (Video Processing)
+
+Control the final output video resolution after processing. Supports landscape, portrait, and square formats for different platforms:
+
+**Presets:**
+
+| Preset | Resolution | Description |
+|--------|------------|-------------|
+| `720p` | 1280x720 | HD landscape |
+| `1080p` | 1920x1080 | Full HD landscape |
+| `1440p` | 2560x1440 | QHD landscape |
+| `4k` | 3840x2160 | 4K UHD landscape |
+| `720p-portrait` | 720x1280 | HD portrait |
+| `1080p-portrait` | 1080x1920 | Full HD portrait |
+| `tiktok` | 1080x1920 | TikTok/Instagram Reels |
+| `shorts` | 1080x1920 | YouTube Shorts |
+| `reels` | 1080x1920 | Instagram Reels |
+| `square` | 1080x1080 | Square format |
+| `square-720` | 720x720 | Square format (smaller) |
+
+**CLI Flags (available on split, add-audio, concat, pipeline):**
+
+```bash
+--output-size <WxH|preset>   # Scale output video to dimensions
+                             # Presets: 720p, 1080p, 4k, tiktok, shorts, square, etc.
+                             # Custom: --output-size 1920x1080
+--output-width <px>          # Output width (use with --output-height or -1 for auto)
+--output-height <px>         # Output height (use with --output-width or -1 for auto)
+```
+
+**Examples:**
+
+```bash
+# Scale to 1080p for standard YouTube
+npx sceneforge split --demo my-demo --output-size 1080p
+npx sceneforge add-audio --demo my-demo --output-size 1080p
+npx sceneforge concat --demo my-demo --output-size 1080p
+
+# Create vertical video for TikTok/YouTube Shorts
+npx sceneforge pipeline --demo my-demo --base-url http://localhost:5173 \
+  --output-size tiktok --quality high
+
+# Create square video for Instagram posts
+npx sceneforge concat --demo my-demo --output-size square
+
+# Custom dimensions
+npx sceneforge concat --demo my-demo --output-size 800x600
+
+# Auto-scale width to maintain aspect ratio
+npx sceneforge concat --demo my-demo --output-height 720 --output-width -1
+
+# Full pipeline with viewport, output dimensions, and quality
+npx sceneforge pipeline --demo my-demo --base-url http://localhost:5173 \
+  --viewport 1080p \
+  --output-size 1080p \
+  --quality high
+```
+
+**How scaling works:**
+- Videos are scaled while maintaining aspect ratio
+- Black padding (letterboxing/pillarboxing) is added when aspect ratios don't match
+- For portrait formats, landscape recordings will have vertical black bars
+- For auto-scale (`-1`), the dimension is calculated to maintain aspect ratio
+
 ### Voice Cache (Cost Savings)
 
 SceneForge automatically caches synthesized voice audio to reduce ElevenLabs API costs. When the same text is synthesized with the same voice and settings, the cached audio is reused instead of making a new API call.
@@ -541,6 +691,11 @@ npx sceneforge context deploy --target all
 # Split files by stage (for modular context)
 npx sceneforge context deploy --format split
 ```
+
+**Additive Deployment:** SceneForge context is deployed additively - if instruction files already exist with your own content, SceneForge will:
+- Append its content to existing files (preserving your content)
+- Use markers (`<!-- SCENEFORGE_CONTEXT_START -->` / `<!-- SCENEFORGE_CONTEXT_END -->`) to identify its section
+- On subsequent deploys, only update the SceneForge section while keeping your content intact
 
 The interactive wizard walks you through:
 1. Selecting target AI tool(s)

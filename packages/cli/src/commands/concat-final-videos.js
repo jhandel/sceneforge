@@ -3,6 +3,21 @@ import * as path from "path";
 import { checkFFmpeg, getMediaDuration, runFFmpeg } from "../utils/media.js";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import { getOutputPaths, resolveRoot, readJson, toAbsolute } from "../utils/paths.js";
+import {
+  getVideoEncodingArgs,
+  parseQualityArgs,
+  getQualityHelpText,
+  logQualitySettings,
+  DEFAULT_AUDIO_CODEC,
+  DEFAULT_AUDIO_BITRATE,
+  DEFAULT_CODEC,
+  DEFAULT_QUALITY,
+} from "../utils/quality.js";
+import {
+  parseOutputDimensions,
+  getOutputDimensionsHelpText,
+  logOutputDimensions,
+} from "../utils/dimensions.js";
 
 function printHelp() {
   console.log(`
@@ -24,12 +39,17 @@ Options:
   --root <path>         Project root (defaults to cwd)
   --output-dir <path>   Output directory (defaults to e2e/output or output)
   --help, -h            Show this help message
+${getQualityHelpText()}
+${getOutputDimensionsHelpText()}
 
 Examples:
   sceneforge concat --demo create-quote
+  sceneforge concat --demo create-quote --quality high
+  sceneforge concat --demo create-quote --output-size 1080p
+  sceneforge concat --demo create-quote --output-size tiktok  # 1080x1920 vertical
   sceneforge concat --demo create-quote --intro intro.mp4 --outro outro.mp4
   sceneforge concat --demo create-quote --music background.mp3 --music-volume 0.2
-  sceneforge concat --all
+  sceneforge concat --all --codec libx265
 `);
 }
 
@@ -55,7 +75,43 @@ async function loadMediaConfig(demoName, paths, rootDir) {
   }
 }
 
-async function buildConcatWithIntroOutro(stepFiles, demoDir, introPath, outroPath, outputPath) {
+// Build scale filter string for use in filter_complex
+function buildScaleFilter(outputDimensions) {
+  if (!outputDimensions) return "";
+  const { width, height } = outputDimensions;
+  if (width === -1 || height === -1) {
+    return `scale=${width}:${height}`;
+  }
+  return `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`;
+}
+
+async function concatByCopy(stepFiles, demoDir, outputPath, tempDir) {
+  const workingDir = tempDir ?? demoDir;
+  await fs.mkdir(workingDir, { recursive: true });
+  const listPath = path.join(workingDir, "concat_list.txt");
+  const listContent = stepFiles
+    .map((file) => `file '${path.join(demoDir, file).replace(/'/g, "'\\''")}'`)
+    .join("\n");
+  await fs.writeFile(listPath, listContent, "utf-8");
+  try {
+    await runFFmpeg([
+      "-y",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      listPath,
+      "-c",
+      "copy",
+      outputPath,
+    ]);
+  } finally {
+    await fs.unlink(listPath).catch(() => {});
+  }
+}
+
+async function buildConcatWithIntroOutro(stepFiles, demoDir, introPath, outroPath, outputPath, qualityOptions = {}, outputDimensions = null) {
   const allInputs = [];
   const inputPaths = [];
   let inputIndex = 0;
@@ -82,7 +138,12 @@ async function buildConcatWithIntroOutro(stepFiles, demoDir, introPath, outroPat
   }
 
   const concatInputs = inputPaths.map(({ index }) => `[${index}:v:0][${index}:a:0]`).join("");
-  const filterGraph = `${concatInputs}concat=n=${inputPaths.length}:v=1:a=1[outv][outa]`;
+  const scaleFilter = buildScaleFilter(outputDimensions);
+  // If scaling, we need to output concat to temp labels, then apply scale to video only
+  const filterGraph = scaleFilter
+    ? `${concatInputs}concat=n=${inputPaths.length}:v=1:a=1[tmpv][outa];[tmpv]${scaleFilter}[outv]`
+    : `${concatInputs}concat=n=${inputPaths.length}:v=1:a=1[outv][outa]`;
+  const encodingArgs = getVideoEncodingArgs(qualityOptions);
 
   await runFFmpeg([
     "-y",
@@ -93,14 +154,7 @@ async function buildConcatWithIntroOutro(stepFiles, demoDir, introPath, outroPat
     "[outv]",
     "-map",
     "[outa]",
-    "-c:v",
-    "libx264",
-    "-preset",
-    "fast",
-    "-c:a",
-    "aac",
-    "-b:a",
-    "192k",
+    ...encodingArgs,
     "-movflags",
     "+faststart",
     outputPath,
@@ -192,9 +246,9 @@ async function addBackgroundMusic(videoPath, musicPath, outputPath, options = {}
     "-c:v",
     "copy",
     "-c:a",
-    "aac",
+    DEFAULT_AUDIO_CODEC,
     "-b:a",
-    "192k",
+    DEFAULT_AUDIO_BITRATE,
     "-movflags",
     "+faststart",
     outputPath,
@@ -203,6 +257,12 @@ async function addBackgroundMusic(videoPath, musicPath, outputPath, options = {}
 
 async function concatDemo(demoName, paths, options = {}) {
   console.log(`\n[concat] Processing: ${demoName}\n`);
+  if (options.qualityOptions) {
+    logQualitySettings(options.qualityOptions, "[concat]");
+  }
+  if (options.outputDimensions) {
+    logOutputDimensions(options.outputDimensions, "[concat]");
+  }
 
   const { rootDir, introOverride, outroOverride, musicOverride, musicOptions = {} } = options;
   const demoDir = path.join(paths.videosDir, demoName);
@@ -281,6 +341,27 @@ async function concatDemo(demoName, paths, options = {}) {
     const tempConcatPath = path.join(paths.finalDir, `${demoName}_temp_concat.mp4`);
     const outputPath = path.join(paths.finalDir, `${demoName}.mp4`);
 
+    // Fast-path: copy concat when no intro/outro, no music, no scaling, and default quality
+    const qualityOptions = options.qualityOptions || {};
+    const outputDimensions = options.outputDimensions || null;
+    const canStreamCopy =
+      !hasIntroOutro &&
+      !hasMusic &&
+      !outputDimensions &&
+      qualityOptions.quality === DEFAULT_QUALITY &&
+      qualityOptions.crf === undefined &&
+      qualityOptions.codec === DEFAULT_CODEC;
+
+    if (canStreamCopy) {
+      try {
+        await concatByCopy(stepFiles, demoDir, outputPath, paths.tempDir);
+        console.log("[concat] ✓ Concatenated via stream copy (no re-encode)");
+        return;
+      } catch (error) {
+        console.warn("[concat] ⚠ Fast concat failed, falling back to re-encode:", error?.message ?? error);
+      }
+    }
+
     // Step 1: Concatenate steps with optional intro/outro
     if (hasIntroOutro) {
       if (introPath) console.log(`[concat] Adding intro: ${path.basename(introPath)}`);
@@ -295,13 +376,20 @@ async function concatDemo(demoName, paths, options = {}) {
         demoDir,
         introPath,
         outroPath,
-        hasMusic ? tempConcatPath : outputPath
+        hasMusic ? tempConcatPath : outputPath,
+        qualityOptions,
+        outputDimensions
       );
     } else {
       // Original concatenation logic for steps only
       const inputArgs = stepFiles.flatMap((file) => ["-i", path.join(demoDir, file)]);
       const concatInputs = stepFiles.map((_, index) => `[${index}:v:0][${index}:a:0]`).join("");
-      const filterGraph = `${concatInputs}concat=n=${stepFiles.length}:v=1:a=1[outv][outa]`;
+      const scaleFilter = buildScaleFilter(outputDimensions);
+      // If scaling, we need to output concat to temp labels, then apply scale to video only
+      const filterGraph = scaleFilter
+        ? `${concatInputs}concat=n=${stepFiles.length}:v=1:a=1[tmpv][outa];[tmpv]${scaleFilter}[outv]`
+        : `${concatInputs}concat=n=${stepFiles.length}:v=1:a=1[outv][outa]`;
+      const encodingArgs = getVideoEncodingArgs(qualityOptions);
 
       await runFFmpeg([
         "-y",
@@ -312,14 +400,7 @@ async function concatDemo(demoName, paths, options = {}) {
         "[outv]",
         "-map",
         "[outa]",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "fast",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "192k",
+        ...encodingArgs,
         "-movflags",
         "+faststart",
         hasMusic ? tempConcatPath : outputPath,
@@ -452,6 +533,8 @@ export async function runConcatCommand(argv) {
 
   const rootDir = resolveRoot(root);
   const paths = await getOutputPaths(rootDir, outputDir);
+  const qualityOptions = parseQualityArgs(args, getFlagValue, hasFlag);
+  const outputDimensions = parseOutputDimensions(args, getFlagValue);
 
   const options = {
     rootDir,
@@ -464,6 +547,8 @@ export async function runConcatCommand(argv) {
       fadeIn: musicFadeIn,
       fadeOut: musicFadeOut,
     },
+    qualityOptions,
+    outputDimensions,
   };
 
   if (demo) {

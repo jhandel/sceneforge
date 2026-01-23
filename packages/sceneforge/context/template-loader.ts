@@ -3,6 +3,7 @@
  * Loads markdown templates and supports variable interpolation.
  */
 
+import { existsSync } from "fs";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -24,7 +25,22 @@ export interface LoadedTemplate {
  * Get the templates directory path.
  */
 function getTemplatesDir(): string {
-  return path.join(__dirname, "templates");
+  const candidates = [
+    // Standard dist layout: dist/templates/{base,stages,skills}
+    path.join(__dirname, "templates"),
+    // Nested layout if templates were copied into an existing dist/templates
+    path.join(__dirname, "templates", "templates"),
+    // Source layout when templates are shipped under context/templates
+    path.join(__dirname, "..", "context", "templates"),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(path.join(candidate, "base"))) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
 }
 
 /**
@@ -68,7 +84,9 @@ export async function loadTemplatesByCategory(
 
     return templates;
   } catch (error) {
-    throw new Error(`Failed to load templates from ${category}: ${error}`);
+    throw new Error(
+      `Failed to load templates from ${category} in ${templatesDir}: ${error}`
+    );
   }
 }
 

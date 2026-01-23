@@ -4,10 +4,22 @@ import { checkFFmpeg, getMediaDuration, runFFmpeg } from "../utils/media.js";
 import { getFlagValue, hasFlag } from "../utils/args.js";
 import { getOutputPaths, resolveRoot, readJson } from "../utils/paths.js";
 import { sanitizeFileSegment } from "../utils/sanitize.js";
+import {
+  getIntermediateEncodingArgs,
+} from "../utils/quality.js";
+import {
+  parseOutputDimensions,
+  getOutputDimensionsHelpText,
+  getScaleFilterArgs,
+  logOutputDimensions,
+} from "../utils/dimensions.js";
 
 function printHelp() {
   console.log(`
 Add audio to individual video step clips
+
+Uses lossless encoding for intermediate files to preserve quality.
+Final compression is applied only at the concat step.
 
 Usage:
   sceneforge add-audio [options]
@@ -19,23 +31,40 @@ Options:
   --root <path>         Project root (defaults to cwd)
   --output-dir <path>   Output directory (defaults to e2e/output or output)
   --help, -h            Show this help message
+${getOutputDimensionsHelpText()}
 
 Output:
   Creates step_XX_<stepId>_with_audio.mp4 files in the videos/<demo>/ folder
 
 Examples:
   sceneforge add-audio --demo create-quote
+  sceneforge add-audio --demo create-quote --output-size 1080p
   sceneforge add-audio --all
 `);
 }
 
-async function addAudioToStep(videoPath, audioPath, outputPath, padding, nextVideoPath) {
+// Build scale filter string for chaining in filter_complex
+function buildScaleFilter(outputDimensions) {
+  if (!outputDimensions) return "";
+  const { width, height } = outputDimensions;
+  if (width === -1 || height === -1) {
+    return `scale=${width}:${height}`;
+  }
+  return `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`;
+}
+
+async function addAudioToStep(videoPath, audioPath, outputPath, padding, nextVideoPath, outputDimensions = null) {
   const videoDuration = await getMediaDuration(videoPath);
   const audioDuration = await getMediaDuration(audioPath);
   const targetDuration = audioDuration + padding;
+  // Use lossless encoding for intermediate files to prevent generation loss
+  const encodingArgs = getIntermediateEncodingArgs({ includeAudio: true });
+  const scaleFilter = buildScaleFilter(outputDimensions);
 
   if (targetDuration <= videoDuration) {
     const padDuration = Math.max(0, videoDuration - audioDuration);
+    // For this case, use -vf for scaling since filter_complex only handles audio
+    const videoFilterArgs = scaleFilter ? ["-vf", scaleFilter] : [];
     await runFFmpeg([
       "-y",
       "-i",
@@ -44,20 +73,14 @@ async function addAudioToStep(videoPath, audioPath, outputPath, padding, nextVid
       audioPath,
       "-filter_complex",
       `[1:a]apad=pad_dur=${padDuration}[a]`,
+      ...videoFilterArgs,
       "-map",
       "0:v",
       "-map",
       "[a]",
       "-t",
       String(videoDuration),
-      "-c:v",
-      "libx264",
-      "-preset",
-      "fast",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "192k",
+      ...encodingArgs,
       outputPath,
     ]);
     return;
@@ -67,11 +90,13 @@ async function addAudioToStep(videoPath, audioPath, outputPath, padding, nextVid
 
   if (nextVideoPath) {
     const stillDuration = 0.04;
+    // Chain scale filter into the filter_complex output
+    const scaleChain = scaleFilter ? `,${scaleFilter}` : "";
     const filterGraph =
       `[1:v]trim=start=0:end=${stillDuration},setpts=PTS-STARTPTS,` +
       `tpad=stop_mode=clone:stop_duration=${extensionNeeded},` +
       `trim=duration=${extensionNeeded}[next_still];` +
-      `[0:v][next_still]concat=n=2:v=1:a=0[outv]`;
+      `[0:v][next_still]concat=n=2:v=1:a=0${scaleChain}[outv]`;
 
     await runFFmpeg([
       "-y",
@@ -87,14 +112,7 @@ async function addAudioToStep(videoPath, audioPath, outputPath, padding, nextVid
       "[outv]",
       "-map",
       "2:a",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "fast",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "192k",
+      ...encodingArgs,
       "-t",
       String(targetDuration),
       outputPath,
@@ -102,6 +120,8 @@ async function addAudioToStep(videoPath, audioPath, outputPath, padding, nextVid
     return;
   }
 
+  // Chain scale filter into the filter_complex output
+  const scaleChain = scaleFilter ? `,${scaleFilter}` : "";
   await runFFmpeg([
     "-y",
     "-i",
@@ -109,27 +129,22 @@ async function addAudioToStep(videoPath, audioPath, outputPath, padding, nextVid
     "-i",
     audioPath,
     "-filter_complex",
-    `[0:v]tpad=stop_mode=clone:stop_duration=${extensionNeeded}[v]`,
+    `[0:v]tpad=stop_mode=clone:stop_duration=${extensionNeeded}${scaleChain}[v]`,
     "-map",
     "[v]",
     "-map",
     "1:a",
-    "-c:v",
-    "libx264",
-    "-preset",
-    "fast",
-    "-c:a",
-    "aac",
-    "-b:a",
-    "192k",
+    ...encodingArgs,
     "-t",
     String(targetDuration),
     outputPath,
   ]);
 }
 
-async function processDemo(demoName, paths, padding) {
-  console.log(`\n[audio] Processing: ${demoName}\n`);
+async function processDemo(demoName, paths, padding, outputDimensions = null) {
+  console.log(`\n[audio] Processing: ${demoName}`);
+  console.log("[audio] Using lossless encoding for intermediate files");
+  logOutputDimensions(outputDimensions, "[audio]");
 
   const stepsManifestPath = path.join(paths.videosDir, demoName, "steps-manifest.json");
   let stepsManifest;
@@ -215,7 +230,7 @@ async function processDemo(demoName, paths, padding) {
     );
 
     try {
-      await addAudioToStep(step.videoFile, audioSegment.audioFile, outputPath, padding, nextVideoPath);
+      await addAudioToStep(step.videoFile, audioSegment.audioFile, outputPath, padding, nextVideoPath, outputDimensions);
       outputFiles.push(outputPath);
     } catch (error) {
       console.error(`[audio]   ${paddedIndex}. ${step.stepId}: ✗ Failed to process`);
@@ -248,7 +263,7 @@ async function processDemo(demoName, paths, padding) {
   console.log(`[audio]   Output: ${path.join(paths.videosDir, demoName)}`);
 }
 
-async function processAll(paths, padding) {
+async function processAll(paths, padding, outputDimensions = null) {
   console.log("\n[audio] Processing all demos...\n");
 
   try {
@@ -279,7 +294,7 @@ async function processAll(paths, padding) {
     console.log(`[audio] Found ${demosToProcess.length} demo(s) to process\n`);
 
     for (const demo of demosToProcess) {
-      await processDemo(demo, paths, padding);
+      await processDemo(demo, paths, padding, outputDimensions);
     }
 
     await fs.rm(paths.tempDir, { recursive: true, force: true });
@@ -312,15 +327,16 @@ export async function runAddAudioCommand(argv) {
 
   const rootDir = resolveRoot(root);
   const paths = await getOutputPaths(rootDir, outputDir);
+  const outputDimensions = parseOutputDimensions(args, getFlagValue);
 
   if (demo) {
-    await processDemo(demo, paths, padding);
+    await processDemo(demo, paths, padding, outputDimensions);
     await fs.rm(paths.tempDir, { recursive: true, force: true });
     return;
   }
 
   if (all) {
-    await processAll(paths, padding);
+    await processAll(paths, padding, outputDimensions);
     return;
   }
 

@@ -72,6 +72,113 @@ npx sceneforge voice-cache prune --days 7  # Remove old entries
 
 Cache is stored in `.voice-cache/` in your project root.
 
+## Video Quality Settings
+
+SceneForge provides configurable video quality settings for the video processing pipeline.
+
+**Quality Presets:**
+
+| Preset | CRF | Encoding | Use Case |
+|--------|-----|----------|----------|
+| `low` | 28 | fast | Quick drafts, smaller files |
+| `medium` | 18 | medium | Default - balanced quality and size |
+| `high` | 10 | slow | Final delivery, best quality |
+
+**Supported Codecs:**
+
+| Codec | Description |
+|-------|-------------|
+| `libx264` | H.264 - excellent compatibility (default) |
+| `libx265` | H.265/HEVC - ~50% smaller files |
+
+**CLI Flags:**
+
+```bash
+--quality <preset>    # low, medium, high (default: medium)
+--crf <value>         # Override CRF (0-51, lower = better)
+--codec <codec>       # libx264 or libx265
+```
+
+**Examples:**
+
+```bash
+# High quality for final output
+npx sceneforge concat --demo my-demo --quality high
+
+# Smaller files with H.265
+npx sceneforge concat --demo my-demo --codec libx265
+
+# Custom CRF value
+npx sceneforge split --demo my-demo --crf 15
+```
+
+**Why it matters:**
+- Videos pass through multiple stages (split → add-audio → concat)
+- Higher quality (lower CRF) prevents generation loss
+- `high` preset (CRF 10) produces near-lossless quality for professional demos
+
+## Viewport Settings (Recording)
+
+Control output video resolution:
+
+```bash
+--viewport <WxH|preset>      # Video resolution (default: 1440x900)
+                             # Presets: 720p, 1080p, 1440p, 4k
+--width <px>                 # Video width
+--height <px>                # Video height
+```
+
+**Examples:**
+
+```bash
+# Record at 1080p
+npx sceneforge record --definition demo.yaml --base-url http://localhost:5173 --viewport 1080p
+
+# Record at 4K
+npx sceneforge record --definition demo.yaml --base-url http://localhost:5173 --viewport 4k
+```
+
+## Output Dimensions (Video Processing)
+
+Control final video resolution with support for different platforms and aspect ratios:
+
+**Presets:**
+
+| Preset | Resolution | Use Case |
+|--------|------------|----------|
+| `720p` | 1280x720 | HD landscape |
+| `1080p` | 1920x1080 | Full HD landscape |
+| `4k` | 3840x2160 | 4K UHD |
+| `tiktok` | 1080x1920 | TikTok/Reels (portrait) |
+| `shorts` | 1080x1920 | YouTube Shorts (portrait) |
+| `square` | 1080x1080 | Instagram posts |
+
+```bash
+--output-size <WxH|preset>   # Output video dimensions
+--output-width <px>          # Output width (-1 for auto)
+--output-height <px>         # Output height (-1 for auto)
+```
+
+**Examples:**
+
+```bash
+# Standard 1080p output
+npx sceneforge concat --demo my-demo --output-size 1080p
+
+# TikTok/YouTube Shorts (portrait)
+npx sceneforge pipeline --demo my-demo --base-url http://localhost:5173 \
+  --output-size tiktok --quality high
+
+# Square for Instagram
+npx sceneforge concat --demo my-demo --output-size square
+
+# Full pipeline with all video options
+npx sceneforge pipeline --demo my-demo --base-url http://localhost:5173 \
+  --viewport 1080p \
+  --output-size 1080p \
+  --quality high
+```
+
 ## Notes
 
 - Voiceover generation uses ElevenLabs and requires `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`.
